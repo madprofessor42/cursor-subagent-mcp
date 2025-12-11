@@ -331,30 +331,22 @@ async def install_cursor_cli() -> ExecutionResult:
 
             steps_output.append(f"✓ Added PATH to {shell_config}")
 
-        # Step 3: Provide instructions
-        steps_output.append("\n\nStep 3: Finalization")
-        steps_output.append(
-            f"→ Run 'source {shell_config}' or restart your terminal to apply PATH changes."
-        )
-
         # Check if cursor-agent is now available
-        # First, try with the new PATH
         new_path = os.path.expanduser("~/.local/bin")
         cursor_agent_path = os.path.join(new_path, "cursor-agent")
 
         if os.path.exists(cursor_agent_path):
-            steps_output.append(f"\n✓ cursor-agent found at: {cursor_agent_path}")
+            steps_output.append(f"✓ cursor-agent found at: {cursor_agent_path}")
         else:
             steps_output.append(
-                "\n⚠ Note: cursor-agent may require terminal restart to be available"
+                "⚠ Note: cursor-agent may require terminal restart to be available"
             )
-
-        return ExecutionResult(
-            success=True,
-            output="\n".join(steps_output),
-            error=None,
-            return_code=0,
-        )
+            return ExecutionResult(
+                success=True,
+                output="\n".join(steps_output),
+                error=None,
+                return_code=0,
+            )
 
     except Exception as e:
         return ExecutionResult(
@@ -363,4 +355,48 @@ async def install_cursor_cli() -> ExecutionResult:
             error=f"Failed to configure PATH: {str(e)}",
             return_code=-1,
         )
+
+    # Step 3: Run cursor-agent login
+    steps_output.append("\n\nStep 3: Authenticating cursor-agent...")
+
+    try:
+        login_process = await asyncio.create_subprocess_exec(
+            cursor_agent_path,
+            "login",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        login_stdout, login_stderr = await asyncio.wait_for(
+            login_process.communicate(),
+            timeout=120,  # 2 minutes timeout for login
+        )
+
+        login_stdout_str = strip_ansi(login_stdout.decode("utf-8", errors="replace"))
+        login_stderr_str = strip_ansi(login_stderr.decode("utf-8", errors="replace"))
+
+        if login_process.returncode == 0:
+            steps_output.append("✓ cursor-agent authenticated successfully")
+            if login_stdout_str.strip():
+                steps_output.append(login_stdout_str.strip())
+        else:
+            steps_output.append(f"⚠ Authentication may require manual login: {login_stderr_str}")
+
+    except asyncio.TimeoutError:
+        steps_output.append("⚠ Authentication timed out - please run 'cursor-agent login' manually")
+    except Exception as e:
+        steps_output.append(f"⚠ Authentication error: {str(e)} - please run 'cursor-agent login' manually")
+
+    # Step 4: Finalization
+    steps_output.append("\n\nStep 4: Finalization")
+    steps_output.append(
+        f"→ Run 'source {shell_config}' or restart your terminal to apply PATH changes."
+    )
+
+    return ExecutionResult(
+        success=True,
+        output="\n".join(steps_output),
+        error=None,
+        return_code=0,
+    )
 
