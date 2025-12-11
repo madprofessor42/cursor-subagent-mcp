@@ -1,9 +1,28 @@
 """Executor for running cursor-agent CLI subagents."""
 
 import asyncio
+import re
 import shutil
 from dataclasses import dataclass
 from typing import Optional
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text.
+
+    This removes color codes, cursor movement, and other terminal control sequences.
+
+    Args:
+        text: Text potentially containing ANSI escape codes.
+
+    Returns:
+        Clean text without ANSI codes.
+    """
+    # Pattern matches:
+    # - \x1b (ESC) followed by [ and any parameters ending with a letter
+    # - \x1b (ESC) followed by other escape sequences
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b[^[[]?")
+    return ansi_pattern.sub("", text)
 
 
 @dataclass
@@ -22,7 +41,25 @@ def find_cursor_agent() -> Optional[str]:
     Returns:
         Path to cursor-agent or None if not found.
     """
-    return shutil.which("cursor-agent")
+    import os
+
+    # First, try the standard PATH
+    path = shutil.which("cursor-agent")
+    if path:
+        return path
+
+    # Check common installation locations that might not be in PATH yet
+    common_paths = [
+        os.path.expanduser("~/.local/bin/cursor-agent"),
+        "/usr/local/bin/cursor-agent",
+        os.path.expanduser("~/bin/cursor-agent"),
+    ]
+
+    for candidate in common_paths:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+
+    return None
 
 
 async def invoke_cursor_agent(
@@ -215,19 +252,42 @@ async def install_cursor_cli() -> ExecutionResult:
             timeout=120,  # 2 minutes timeout for download
         )
 
-        stdout_str = stdout.decode("utf-8", errors="replace")
-        stderr_str = stderr.decode("utf-8", errors="replace")
+        stdout_str = strip_ansi(stdout.decode("utf-8", errors="replace"))
+        stderr_str = strip_ansi(stderr.decode("utf-8", errors="replace"))
+
+        # Extract only the important status lines from installer output
+        # Skip the "Next Steps" section since we handle PATH configuration ourselves
+        important_lines = []
+        skip_section = False
+        for line in stdout_str.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            # Skip the "Next Steps" instruction section
+            if "Next Steps" in line:
+                skip_section = True
+                continue
+            if skip_section and line.startswith(("1.", "2.", "For bash:", "For zsh:", "echo", "source", "cursor-agent")):
+                continue
+            if "Happy coding" in line:
+                skip_section = False
+                continue
+            # Keep important status lines
+            if line.startswith(("✓", "▸", "✨")) or "Installer" in line or "Detected" in line:
+                important_lines.append(line)
+
+        stdout_clean = "\n".join(important_lines)
 
         if process.returncode != 0:
             return ExecutionResult(
                 success=False,
-                output="\n".join(steps_output) + "\n" + stdout_str,
+                output="\n".join(steps_output) + "\n\n" + stdout_clean,
                 error=f"Installation failed: {stderr_str}",
                 return_code=process.returncode,
             )
 
-        steps_output.append(stdout_str)
-        steps_output.append("✓ Cursor CLI installed successfully")
+        steps_output.append(stdout_clean)
+        steps_output.append("\n✓ Cursor CLI installed successfully")
 
     except asyncio.TimeoutError:
         return ExecutionResult(
@@ -245,7 +305,7 @@ async def install_cursor_cli() -> ExecutionResult:
         )
 
     # Step 2: Add to PATH in shell config
-    steps_output.append("\nStep 2: Configuring PATH...")
+    steps_output.append("\n\nStep 2: Configuring PATH...")
 
     shell_config = get_shell_config_file()
     path_export = 'export PATH="$HOME/.local/bin:$PATH"'
@@ -272,9 +332,9 @@ async def install_cursor_cli() -> ExecutionResult:
             steps_output.append(f"✓ Added PATH to {shell_config}")
 
         # Step 3: Provide instructions
-        steps_output.append("\nStep 3: Finalization")
+        steps_output.append("\n\nStep 3: Finalization")
         steps_output.append(
-            f"Run 'source {shell_config}' or restart your terminal to apply changes."
+            f"→ Run 'source {shell_config}' or restart your terminal to apply PATH changes."
         )
 
         # Check if cursor-agent is now available
@@ -283,10 +343,10 @@ async def install_cursor_cli() -> ExecutionResult:
         cursor_agent_path = os.path.join(new_path, "cursor-agent")
 
         if os.path.exists(cursor_agent_path):
-            steps_output.append(f"✓ cursor-agent found at: {cursor_agent_path}")
+            steps_output.append(f"\n✓ cursor-agent found at: {cursor_agent_path}")
         else:
             steps_output.append(
-                "Note: cursor-agent may require terminal restart to be available"
+                "\n⚠ Note: cursor-agent may require terminal restart to be available"
             )
 
         return ExecutionResult(

@@ -31,36 +31,62 @@ def get_config() -> Config:
     return _config
 
 
+def _load_orchestrator_guide() -> str:
+    """Load orchestrator guide from file."""
+    import os
+
+    config = get_config()
+    orchestrator_path = os.path.join(config.prompts_dir, "01_orchestrator.md")
+
+    if not os.path.exists(orchestrator_path):
+        raise FileNotFoundError(
+            f"Orchestrator guide not found: {orchestrator_path}"
+        )
+
+    with open(orchestrator_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @mcp.tool()
-def list_agents() -> dict:
-    """List all available subagents with their descriptions.
+def get_orchestration_guide() -> dict:
+    """Get complete orchestration guide with instructions and available agents.
 
-    Returns a dictionary with agent roles as keys and their
-    configuration (name, description, default model) as values.
-    Use this to understand which agents are available for
-    orchestrating the development process.
+    CALL THIS FIRST when starting a multi-agent development task.
 
-    Agent roles follow the development workflow:
-    - analyst: Creates technical specifications (ТЗ)
-    - tz_reviewer: Reviews technical specifications
-    - architect: Designs system architecture
-    - architecture_reviewer: Reviews architecture
-    - planner: Creates development task plans
-    - plan_reviewer: Reviews task plans
-    - developer: Implements code and tests
-    - code_reviewer: Reviews code changes
+    This tool returns everything you need to orchestrate the development:
+    - Full guide with instructions on how to coordinate agents
+    - List of all available agents with their roles
+
+    After calling this, use invoke_subagent() to call specific agents
+    following the workflow described in the guide.
+
+    Returns:
+        - guide: Full orchestrator instructions (from 01_orchestrator.md)
+        - agents: Dictionary of available agents with descriptions
     """
     config = get_config()
-    result = {}
 
+    # Get agents list
+    agents = {}
     for role, agent in config.agents.items():
-        result[role] = {
+        agents[role] = {
             "name": agent.name,
             "description": agent.description,
-            "default_model": agent.default_model,
         }
 
-    return result
+    # Load orchestrator guide from file
+    try:
+        guide = _load_orchestrator_guide()
+    except FileNotFoundError as e:
+        return {
+            "error": str(e),
+            "agents": agents,
+        }
+
+    return {
+        "guide": guide,
+        "agents": agents,
+    }
 
 
 @mcp.tool()
