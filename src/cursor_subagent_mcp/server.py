@@ -17,10 +17,7 @@ from .executor import (
 )
 
 # Initialize the MCP server
-mcp = FastMCP(
-    "Cursor Subagent Orchestrator",
-    version="0.1.0",
-)
+mcp = FastMCP("Cursor Subagent Orchestrator")
 
 # Global config - loaded on first access
 _config: Optional[Config] = None
@@ -64,37 +61,6 @@ def list_agents() -> dict:
         }
 
     return result
-
-
-@mcp.tool()
-def get_agent_prompt(
-    agent_role: Annotated[
-        str,
-        "The role of the agent (e.g., 'analyst', 'architect', 'developer')",
-    ],
-) -> str:
-    """Get the full system prompt for a specific agent.
-
-    Use this to inspect what instructions a particular agent receives.
-    This is useful for understanding how an agent will behave or for
-    debugging the orchestration process.
-
-    Args:
-        agent_role: The identifier of the agent role.
-
-    Returns:
-        The full system prompt content for the agent.
-    """
-    config = get_config()
-
-    if agent_role not in config.agents:
-        available = ", ".join(config.agents.keys())
-        raise ValueError(
-            f"Unknown agent role: '{agent_role}'. "
-            f"Available roles: {available}"
-        )
-
-    return load_prompt(config, agent_role)
 
 
 @mcp.tool()
