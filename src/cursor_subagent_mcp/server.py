@@ -8,7 +8,7 @@ from typing import Annotated, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from .config import Config, load_config, load_prompt
+from .config import Config, load_config, load_prompt_file
 from .executor import (
     check_cursor_agent_available,
     detect_shell,
@@ -33,18 +33,8 @@ def get_config() -> Config:
 
 def _load_orchestrator_guide() -> str:
     """Load orchestrator guide from file."""
-    import os
-
     config = get_config()
-    orchestrator_path = os.path.join(config.prompts_dir, "01_orchestrator.md")
-
-    if not os.path.exists(orchestrator_path):
-        raise FileNotFoundError(
-            f"Orchestrator guide not found: {orchestrator_path}"
-        )
-
-    with open(orchestrator_path, "r", encoding="utf-8") as f:
-        return f.read()
+    return load_prompt_file(config, config.orchestrator_prompt_file)
 
 
 @mcp.tool()
@@ -170,7 +160,7 @@ async def invoke_subagent(
 
     # Load the system prompt
     try:
-        system_prompt = load_prompt(config, agent_role)
+        system_prompt = load_prompt_file(config, agent.prompt_file)
     except FileNotFoundError as e:
         return {
             "success": False,

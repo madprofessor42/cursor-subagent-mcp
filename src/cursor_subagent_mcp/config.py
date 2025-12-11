@@ -28,6 +28,10 @@ class Config(BaseModel):
     prompts_base_path: Optional[str] = Field(
         default=None, description="Base path for prompt files (optional)"
     )
+    orchestrator_prompt_file: str = Field(
+        default="agents-master/01_orchestrator.md",
+        description="Path to the orchestrator guide file",
+    )
 
 
 def find_config_file() -> Optional[Path]:
@@ -85,31 +89,32 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     return Config(**data)
 
 
-def get_prompt_path(config: Config, agent_role: str) -> Path:
-    """Get the full path to an agent's prompt file.
+def resolve_prompt_path(config: Config, relative_path: str) -> Path:
+    """Resolve a relative prompt file path to an absolute path.
 
     Args:
         config: The loaded configuration.
-        agent_role: The role identifier of the agent.
+        relative_path: Relative path to the prompt file.
 
     Returns:
-        Path to the prompt file.
+        Absolute path to the prompt file.
 
     Raises:
-        KeyError: If agent role is not found.
         FileNotFoundError: If prompt file doesn't exist.
     """
-    if agent_role not in config.agents:
-        raise KeyError(f"Unknown agent role: {agent_role}")
+    prompt_path = Path(relative_path)
 
-    agent = config.agents[agent_role]
-    prompt_path = Path(agent.prompt_file)
+    # If already absolute, just check existence
+    if prompt_path.is_absolute():
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
+        return prompt_path
 
-    # If relative path and base path is set, prepend it
-    if not prompt_path.is_absolute() and config.prompts_base_path:
+    # If base path is set, prepend it
+    if config.prompts_base_path:
         prompt_path = Path(config.prompts_base_path) / prompt_path
 
-    # If still relative, try relative to config file location
+    # If still relative, resolve relative to config file location
     if not prompt_path.is_absolute():
         config_file = find_config_file()
         if config_file:
@@ -121,16 +126,19 @@ def get_prompt_path(config: Config, agent_role: str) -> Path:
     return prompt_path
 
 
-def load_prompt(config: Config, agent_role: str) -> str:
-    """Load the system prompt for an agent.
+def load_prompt_file(config: Config, relative_path: str) -> str:
+    """Load a prompt file by its relative path.
 
     Args:
         config: The loaded configuration.
-        agent_role: The role identifier of the agent.
+        relative_path: Relative path to the prompt file.
 
     Returns:
         The content of the prompt file.
+
+    Raises:
+        FileNotFoundError: If prompt file doesn't exist.
     """
-    prompt_path = get_prompt_path(config, agent_role)
+    prompt_path = resolve_prompt_path(config, relative_path)
     return prompt_path.read_text(encoding="utf-8")
 
