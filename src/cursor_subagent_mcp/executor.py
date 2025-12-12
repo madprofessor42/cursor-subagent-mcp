@@ -3,13 +3,12 @@
 import asyncio
 import json
 import logging
-import os
 import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 # Setup logging
 _logger: Optional[logging.Logger] = None
@@ -258,7 +257,6 @@ async def invoke_cursor_agent(
     context: str = "",
     timeout: Optional[float] = None,
     agent_role: str = "agent",
-    on_event: Optional[Callable[[StreamEvent], None]] = None,
 ) -> ExecutionResult:
     """Invoke cursor-agent CLI with streaming and logging.
 
@@ -270,7 +268,6 @@ async def invoke_cursor_agent(
         context: Additional context to include in the prompt.
         timeout: Optional timeout in seconds.
         agent_role: Role name for logging (e.g., "analyst", "developer").
-        on_event: Optional callback for real-time event processing.
 
     Returns:
         ExecutionResult with the output from the agent.
@@ -334,52 +331,87 @@ async def invoke_cursor_agent(
         async def read_stderr():
             """Read stderr in background."""
             assert process.stderr is not None
-            async for line in process.stderr:
-                stderr_output.append(line.decode("utf-8", errors="replace"))
+            try:
+                async for line in process.stderr:
+                    stderr_output.append(line.decode("utf-8", errors="replace"))
+            except Exception as e:
+                # Stream closed or other error - log but don't fail
+                logger.debug(f"[{agent_role}] Error reading stderr: {e}")
 
         # Start reading stderr in background
         stderr_task = asyncio.create_task(read_stderr())
 
+        stream_error: Optional[Exception] = None
+        
         try:
             # Read stdout line by line (NDJSON stream)
             assert process.stdout is not None
             
             async def process_stream():
-                nonlocal session_id, duration_ms
-                async for line in process.stdout:
-                    line_str = line.decode("utf-8", errors="replace").strip()
-                    if not line_str:
-                        continue
-                    
-                    event = StreamEvent.from_json(line_str)
-                    if event:
-                        events.append(event)
-                        _log_event(logger, event, agent_role)
-                        
-                        # Call optional callback
-                        if on_event:
-                            try:
-                                on_event(event)
-                            except Exception as e:
-                                logger.warning(f"[{agent_role}] Event callback error: {e}")
-                        
-                        # Extract session_id
-                        if event.event_type == "system" and event.subtype == "init":
-                            session_id = event.data.get("session_id")
-                        
-                        # Collect assistant messages
-                        if event.event_type == "assistant":
-                            content = event.data.get("message", {}).get("content", [])
-                            for c in content:
-                                if c.get("type") == "text":
-                                    assistant_messages.append(c.get("text", ""))
-                        
-                        # Extract duration from result
-                        if event.event_type == "result":
-                            duration_ms = event.data.get("duration_ms")
+                nonlocal session_id, duration_ms, stream_error
+                # Read stream until EOF - similar to TypeScript event-based approach
+                # Don't stop reading on errors, let the process complete naturally
+                try:
+                    async for line in process.stdout:
+                        try:
+                            line_str = line.decode("utf-8", errors="replace").strip()
+                            if not line_str:
+                                continue
+                            
+                            event = StreamEvent.from_json(line_str)
+                            if event:
+                                events.append(event)
+                                _log_event(logger, event, agent_role)
+                                
+                                # Extract session_id
+                                if event.event_type == "system" and event.subtype == "init":
+                                    session_id = event.data.get("session_id")
+                                
+                                # Collect assistant messages
+                                if event.event_type == "assistant":
+                                    content = event.data.get("message", {}).get("content", [])
+                                    for c in content:
+                                        if c.get("type") == "text":
+                                            assistant_messages.append(c.get("text", ""))
+                                
+                                # Extract duration from result
+                                if event.event_type == "result":
+                                    duration_ms = event.data.get("duration_ms")
+                        except Exception as e:
+                            # Error processing a line - log but continue reading
+                            logger.debug(f"[{agent_role}] Error processing line: {e}")
+                            continue
+                except (BrokenPipeError, ConnectionError, OSError) as e:
+                    # Stream closed - this is normal when process completes
+                    # Don't treat as critical error, just note it
+                    logger.debug(f"[{agent_role}] Stream reading completed (closed): {e}")
+                except Exception as e:
+                    # Other unexpected errors during stream reading
+                    stream_error = e
+                    logger.debug(f"[{agent_role}] Stream reading error: {e}")
 
-            await asyncio.wait_for(process_stream(), timeout=timeout)
-            await process.wait()
+            # Read stream - it may complete normally or close prematurely
+            # In either case, we continue to wait for process completion
+            try:
+                await asyncio.wait_for(process_stream(), timeout=timeout)
+            except asyncio.TimeoutError:
+                # Timeout - handled in outer except block
+                raise
+            
+            # Stream reading completed (normally or with error)
+            # Now wait for process to complete if it hasn't already
+            if process.returncode is None:
+                # Process still running, wait for it to finish
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    # Process is still running after stream ended - kill it
+                    logger.warning(f"[{agent_role}] Process still running after stream ended, killing")
+                    process.kill()
+                    await process.wait()
+            else:
+                # Process already finished
+                logger.debug(f"[{agent_role}] Process already finished with code {process.returncode}")
             
         except asyncio.TimeoutError:
             process.kill()
@@ -399,11 +431,25 @@ async def invoke_cursor_agent(
                 session_id=session_id,
             )
         finally:
-            stderr_task.cancel()
-            try:
-                await stderr_task
-            except asyncio.CancelledError:
-                pass
+            # Wait for stderr reading to complete naturally
+            # Don't cancel immediately - let it finish reading any remaining errors
+            if not stderr_task.done():
+                try:
+                    # Give stderr a moment to finish reading
+                    await asyncio.wait_for(stderr_task, timeout=2.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    # If it's taking too long or was cancelled, cancel it
+                    stderr_task.cancel()
+                    try:
+                        await stderr_task
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        logger.debug(f"[{agent_role}] Error cancelling stderr task: {e}")
+            
+            # Don't close stdout/stderr streams manually - let the process handle cleanup
+            # Closing them prematurely can interrupt the process's graceful shutdown
+            # The streams will be closed automatically when the process terminates
 
         # Combine all assistant messages for logging
         full_output = "".join(assistant_messages)
@@ -427,23 +473,59 @@ async def invoke_cursor_agent(
         
         stderr_str = "".join(stderr_output).strip()
 
-        if process.returncode == 0:
-            logger.info(f"[{agent_role}] === Agent completed successfully ===")
+        # Check if stderr contains "Premature close" - this is an HTTP connection error
+        # that may occur even when the task completes successfully
+        is_premature_close = (
+            "Premature close" in stderr_str or 
+            "premature close" in stderr_str.lower() or
+            "NGHTTP2_INTERNAL_ERROR" in stderr_str
+        )
+        
+        # If we have useful output and only premature close error, treat as success
+        # This matches the behavior in TypeScript projects where they return results
+        # even if process exits with non-zero code but has useful output
+        has_useful_output = len(output_to_return.strip()) > 100  # At least 100 chars
+        
+        # Combine error messages
+        error_parts = []
+        if stderr_str and not (is_premature_close and has_useful_output):
+            # Include stderr unless it's just premature close and we have useful output
+            error_parts.append(stderr_str)
+        if stream_error is not None:
+            error_parts.append(f"Stream error: {stream_error}")
+        
+        # If no specific error messages but process failed, add generic message
+        if process.returncode != 0 and len(error_parts) == 0:
+            error_parts.append(f"Process exited with code {process.returncode}")
+        
+        combined_error = " | ".join(error_parts) if error_parts else None
+
+        # Treat as success if:
+        # 1. Process exited with code 0, OR
+        # 2. Process exited with non-zero but we have useful output and only premature close error
+        if process.returncode == 0 or (is_premature_close and has_useful_output):
+            if process.returncode != 0:
+                logger.warning(
+                    f"[{agent_role}] Process exited with code {process.returncode} "
+                    f"but got useful output. Treating as success despite premature close."
+                )
+            else:
+                logger.info(f"[{agent_role}] === Agent completed successfully ===")
             return ExecutionResult(
                 success=True,
                 output=output_to_return,
-                error=stderr_str if stderr_str else None,
+                error=None if (is_premature_close and has_useful_output) else (stderr_str if stderr_str else None),
                 return_code=process.returncode,
                 events=events,
                 session_id=session_id,
                 duration_ms=duration_ms,
             )
         else:
-            logger.error(f"[{agent_role}] Agent failed with code {process.returncode}: {stderr_str}")
+            logger.error(f"[{agent_role}] Agent failed with code {process.returncode}: {combined_error}")
             return ExecutionResult(
                 success=False,
                 output=output_to_return,
-                error=stderr_str or f"Process exited with code {process.returncode}",
+                error=combined_error or f"Process exited with code {process.returncode}",
                 return_code=process.returncode,
                 events=events,
                 session_id=session_id,
