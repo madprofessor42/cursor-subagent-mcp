@@ -391,6 +391,11 @@ class TestInvokeCursorAgent:
             assert "Context text" in prompt_arg
             assert "## ЗАДАЧА" in prompt_arg
             assert "Task text" in prompt_arg
+            
+            # Проверяем, что команда содержит --workspace с правильным путём (по умолчанию = cwd)
+            assert "--workspace" in captured_cmd
+            workspace_idx = captured_cmd.index("--workspace")
+            assert captured_cmd[workspace_idx + 1] == "/tmp"
 
     @pytest.mark.asyncio
     async def test_invoke_cursor_agent_invalid_json_line(self, reset_logger_singleton):
@@ -518,6 +523,59 @@ class TestInvokeCursorAgent:
             assert "## КОНТЕКСТ" not in prompt_arg
             assert "## ЗАДАЧА" in prompt_arg
             assert "Task text" in prompt_arg
+            
+            # Проверяем, что команда содержит --workspace с правильным путём (по умолчанию = cwd)
+            assert "--workspace" in captured_cmd
+            workspace_idx = captured_cmd.index("--workspace")
+            assert captured_cmd[workspace_idx + 1] == "/tmp"
+
+    @pytest.mark.asyncio
+    async def test_invoke_cursor_agent_custom_workspace(self, reset_logger_singleton):
+        """TC-UNIT-06.8: UC-06.8 - Проверка использования отдельного workspace."""
+        mock_logger = MagicMock()
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        
+        async def mock_stdout():
+            yield b'{"type": "result", "duration_ms": 1000}\n'
+        
+        mock_process.stdout = mock_stdout()
+        
+        async def mock_stderr():
+            return
+            yield
+        
+        mock_process.stderr = mock_stderr()
+        mock_process.wait = AsyncMock(return_value=0)
+        mock_process.kill = MagicMock()
+        
+        captured_cmd = []
+        captured_kwargs = {}
+        
+        async def capture_cmd(*args, **kwargs):
+            captured_cmd.extend(args)
+            captured_kwargs.update(kwargs)
+            return mock_process
+        
+        with patch("cursor_subagent_mcp.executor.runner.get_logger", return_value=mock_logger), \
+             patch("cursor_subagent_mcp.executor.runner.find_cursor_agent", return_value="/usr/bin/cursor-agent"), \
+             patch("asyncio.create_subprocess_exec", side_effect=capture_cmd):
+            
+            await invoke_cursor_agent(
+                system_prompt="System prompt text",
+                task="Task text",
+                model="claude-sonnet-4-20250514",
+                cwd="/my/project",  # Рабочая директория процесса
+                workspace="/other/project",  # Workspace для доступа к файлам
+            )
+            
+            # Проверяем, что cwd передан процессу
+            assert captured_kwargs.get("cwd") == "/my/project"
+            
+            # Проверяем, что --workspace указывает на другой проект
+            assert "--workspace" in captured_cmd
+            workspace_idx = captured_cmd.index("--workspace")
+            assert captured_cmd[workspace_idx + 1] == "/other/project"
 
     @pytest.mark.asyncio
     async def test_invoke_cursor_agent_invalid_encoding(self, reset_logger_singleton):

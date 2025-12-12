@@ -68,6 +68,7 @@ class TestInvokeSubagent:
                 task="Create technical specification",
                 model="claude-sonnet-4-20250514",
                 cwd="/tmp/test_project",
+                workspace="/tmp/test_project",  # workspace defaults to cwd
                 context="",
                 timeout=None,
                 agent_role="analyst",

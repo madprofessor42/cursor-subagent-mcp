@@ -65,6 +65,7 @@ async def invoke_cursor_agent(
     task: str,
     model: str,
     cwd: str,
+    workspace: Optional[str] = None,
     context: str = "",
     timeout: Optional[float] = None,
     agent_role: str = "agent",
@@ -75,7 +76,9 @@ async def invoke_cursor_agent(
         system_prompt: The system prompt for the agent.
         task: The task/user message to send to the agent.
         model: The model to use (e.g., "claude-sonnet-4-20250514").
-        cwd: Working directory for the agent (project root path).
+        cwd: Working directory for the agent process (where output files are saved).
+        workspace: Workspace directory that agent can access (read/write files).
+                   If not provided, defaults to cwd.
         context: Additional context to include in the prompt.
         timeout: Optional timeout in seconds.
         agent_role: Role name for logging (e.g., "analyst", "developer").
@@ -102,21 +105,28 @@ async def invoke_cursor_agent(
     full_prompt_parts.append(f"\n\n## ЗАДАЧА\n\n{task}")
     full_prompt = "\n".join(full_prompt_parts)
 
+    # Use workspace if provided, otherwise default to cwd
+    workspace_to_use = workspace or cwd
+    
     # Log invocation
     logger.info(f"[{agent_role}] === Starting agent invocation ===")
     logger.info(f"[{agent_role}] Model: {model}")
     logger.info(f"[{agent_role}] CWD: {cwd}")
+    logger.info(f"[{agent_role}] Workspace: {workspace_to_use}")
     logger.info(f"[{agent_role}] Task: {task[:100]}..." if len(task) > 100 else f"[{agent_role}] Task: {task}")
 
     # Build command with streaming JSON output
     # According to https://cursor.com/docs/cli/reference/parameters:
     # - `-p, --print` is for printing to console (required for --output-format)
+    # - `--workspace` sets the workspace directory for file access (what agent can read/write)
+    # - cwd sets the process working directory (where output files are saved)
     # - prompt is passed as positional argument
     cmd = [
         cursor_agent,
         "--print",  # Required for --output-format to work
         "--output-format", "stream-json",
         "--model", model,
+        "--workspace", workspace_to_use,  # Set workspace directory for file access
         "-f",  # Force allow commands unless explicitly denied
         full_prompt,  # Positional argument: initial prompt
     ]

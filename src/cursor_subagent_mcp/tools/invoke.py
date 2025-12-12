@@ -17,12 +17,16 @@ async def invoke_subagent(
     ],
     cwd: Annotated[
         str,
-        "Working directory path (project root) where the agent should execute. Files created by the agent will be placed here.",
+        "Working directory path where the agent process runs and files (like subagent_output/) are saved.",
     ],
     context: Annotated[
         str,
         "Additional context like file contents, previous results, or project description",
     ] = "",
+    workspace: Annotated[
+        Optional[str],
+        "Workspace directory that the agent can access and explore (read/write files). If not provided, defaults to cwd. Use this to let the agent explore a different project while saving results to cwd.",
+    ] = None,
     model: Annotated[
         Optional[str],
         "Override the default model for this agent (optional)",
@@ -50,7 +54,9 @@ async def invoke_subagent(
         agent_role: Which agent to invoke.
         task: The specific task for the agent.
         context: Additional context (files, previous outputs, etc.).
-        cwd: Working directory (project root) where agent should work.
+        cwd: Working directory where agent process runs and saves output files.
+        workspace: Directory the agent can access for reading/writing project files.
+                   If not provided, defaults to cwd.
         model: Override the default model (optional).
         timeout: Execution timeout in seconds (optional).
 
@@ -110,11 +116,15 @@ async def invoke_subagent(
         }
 
     # Execute the agent
+    # Use workspace if provided, otherwise default to cwd
+    workspace_to_use = workspace or cwd
+    
     result = await invoke_cursor_agent(
         system_prompt=system_prompt,
         task=task,
         model=model_to_use,
         cwd=cwd,
+        workspace=workspace_to_use,
         context=context,
         timeout=timeout,
         agent_role=agent_role,
