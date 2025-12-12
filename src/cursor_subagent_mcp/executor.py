@@ -96,6 +96,70 @@ def strip_ansi(text: str) -> str:
     return ansi_pattern.sub("", text)
 
 
+def extract_final_json(text: str) -> Optional[str]:
+    """Extract final JSON from agent response.
+    
+    Looks for JSON in markdown code blocks (```json ... ```) or as raw JSON.
+    Returns the last JSON found in the text, or None if no valid JSON found.
+    
+    Args:
+        text: Full text response from agent.
+        
+    Returns:
+        JSON string if found, None otherwise.
+    """
+    if not text:
+        return None
+    
+    # Try to find JSON in markdown code blocks first
+    json_block_pattern = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
+    json_matches = json_block_pattern.findall(text)
+    if json_matches:
+        # Return the last JSON block found
+        try:
+            json.loads(json_matches[-1])  # Validate it's valid JSON
+            return json_matches[-1].strip()
+        except json.JSONDecodeError:
+            pass
+    
+    # Try to find raw JSON blocks (``` ... ``` without json label)
+    code_block_pattern = re.compile(r"```\s*\n(.*?)\n```", re.DOTALL)
+    code_matches = code_block_pattern.findall(text)
+    for match in reversed(code_matches):  # Check from end to start
+        try:
+            parsed = json.loads(match.strip())
+            # If it's a dict or list, it's likely JSON
+            if isinstance(parsed, (dict, list)):
+                return match.strip()
+        except json.JSONDecodeError:
+            continue
+    
+    # Try to find JSON at the end of the text (common pattern)
+    # Look for { ... } or [ ... ] patterns
+    json_object_pattern = re.compile(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", re.DOTALL)
+    json_array_pattern = re.compile(r"\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]", re.DOTALL)
+    
+    # Try object first
+    object_matches = json_object_pattern.findall(text)
+    for match in reversed(object_matches):
+        try:
+            json.loads(match)
+            return match.strip()
+        except json.JSONDecodeError:
+            continue
+    
+    # Try array
+    array_matches = json_array_pattern.findall(text)
+    for match in reversed(array_matches):
+        try:
+            json.loads(match)
+            return match.strip()
+        except json.JSONDecodeError:
+            continue
+    
+    return None
+
+
 @dataclass
 class ExecutionResult:
     """Result of a subagent execution."""
@@ -321,9 +385,14 @@ async def invoke_cursor_agent(
             process.kill()
             await process.wait()
             logger.error(f"[{agent_role}] Execution timed out after {timeout} seconds")
+            # Try to extract JSON from partial output
+            partial_output = "".join(assistant_messages)
+            logger.debug(f"[{agent_role}] Partial output on timeout ({len(partial_output)} chars)")
+            final_json = extract_final_json(partial_output)
+            output_to_return = final_json if final_json else partial_output
             return ExecutionResult(
                 success=False,
-                output="".join(assistant_messages),
+                output=output_to_return,
                 error=f"Execution timed out after {timeout} seconds",
                 return_code=-1,
                 events=events,
@@ -336,15 +405,33 @@ async def invoke_cursor_agent(
             except asyncio.CancelledError:
                 pass
 
-        # Combine all assistant messages
+        # Combine all assistant messages for logging
         full_output = "".join(assistant_messages)
+        
+        # Log full output for debugging
+        logger.debug(f"[{agent_role}] Full assistant output ({len(full_output)} chars)")
+        if full_output:
+            # Log first 500 chars for visibility
+            preview = full_output[:500] + "..." if len(full_output) > 500 else full_output
+            logger.info(f"[{agent_role}] Assistant response preview: {preview}")
+        
+        # Extract final JSON from response (for output)
+        final_json = extract_final_json(full_output)
+        if final_json:
+            logger.info(f"[{agent_role}] Extracted JSON response ({len(final_json)} chars)")
+            output_to_return = final_json
+        else:
+            # Fallback: return full output if no JSON found
+            logger.warning(f"[{agent_role}] No JSON found in response, returning full output")
+            output_to_return = full_output
+        
         stderr_str = "".join(stderr_output).strip()
 
         if process.returncode == 0:
             logger.info(f"[{agent_role}] === Agent completed successfully ===")
             return ExecutionResult(
                 success=True,
-                output=full_output,
+                output=output_to_return,
                 error=stderr_str if stderr_str else None,
                 return_code=process.returncode,
                 events=events,
@@ -355,7 +442,7 @@ async def invoke_cursor_agent(
             logger.error(f"[{agent_role}] Agent failed with code {process.returncode}: {stderr_str}")
             return ExecutionResult(
                 success=False,
-                output=full_output,
+                output=output_to_return,
                 error=stderr_str or f"Process exited with code {process.returncode}",
                 return_code=process.returncode,
                 events=events,

@@ -112,28 +112,52 @@
 
 ## ФОРМАТ ВЫХОДНЫХ ДАННЫХ
 
-Верни JSON:
+**КРИТИЧЕСКИ ВАЖНО:** Твой финальный ответ ДОЛЖЕН заканчиваться JSON блоком. Это единственный способ для оркестратора получить информацию о выполненной работе.
+
+**Ты можешь дать текстовое описание работы, но В КОНЦЕ ОБЯЗАТЕЛЬНО верни JSON:**
 
 ```json
 {
   "output_file": "subagent_output/<название>_<timestamp>.md",
-  "modified_files": [
-    "path/to/file1.py",
-    "path/to/file2.tsx"
-  ],
+  "modified_files": {
+    "path/to/file1.py": "полное содержимое файла после изменений",
+    "path/to/file2.tsx": "полное содержимое файла после изменений"
+  },
   "status": "success"
 }
 ```
 
-Если код не изменялся, `modified_files` будет пустым массивом:
+**Правила для `modified_files`:**
+- Ключи — это пути к файлам относительно корня проекта (cwd)
+- Значения — это **полное содержимое файла** после всех изменений
+- Включай ВСЕ изменённые и созданные файлы кода
+- НЕ включай файл отчёта (output_file) — он указан отдельным полем
+- Если код не изменялся, `modified_files` будет пустым объектом: `{}`
 
+**Примеры:**
+
+Если код не изменялся (только исследование):
 ```json
 {
   "output_file": "subagent_output/analysis_2024-01-15_14-30.md",
-  "modified_files": [],
+  "modified_files": {},
   "status": "success"
 }
 ```
+
+Если были изменения:
+```json
+{
+  "output_file": "subagent_output/test_id_addition_2024-01-15_15-45.md",
+  "modified_files": {
+    "hello-world.py": "print('Hello, World!')\n",
+    "src/components/Button.tsx": "import React from 'react';\n\nexport const Button = () => {\n  return <button data-testid=\"button-submit\">...</button>;\n};"
+  },
+  "status": "success"
+}
+```
+
+**ВАЖНО:** JSON должен быть последним в твоём ответе. Оркестратор извлекает только финальный JSON блок.
 
 ## ВАЖНЫЕ ПРАВИЛА
 
@@ -161,7 +185,7 @@
 ```json
 {
   "output_file": "subagent_output/error_report_2024-01-15_14-30.md",
-  "modified_files": [],
+  "modified_files": {},
   "status": "error",
   "error": "Краткое описание проблемы"
 }
@@ -178,5 +202,7 @@
 1. Проанализируй что нужно сделать
 2. Сделай это
 3. Создай отчёт
-4. Верни результат в JSON
+4. **ОБЯЗАТЕЛЬНО верни результат в JSON в конце ответа**
+
+**Помни:** Твой ответ должен заканчиваться JSON блоком с полями `output_file`, `modified_files` и `status`. Без JSON оркестратор не сможет обработать результат.
 

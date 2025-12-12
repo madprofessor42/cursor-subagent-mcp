@@ -1,16 +1,20 @@
 {
 	"folders": [
 		{
+			"name": "cursor-subagent-mcp",
 			"path": "."
 		},
 		{
+			"name": "sub-agents-mcp",
 			"path": "../sub-agents-mcp"
 		},
 		{
-			"path": "../mcp-server-subagent"
+			"name": "sub-agents-mcp-nick",
+			"path": "../sub-agents-mcp-nick"
 		},
 		{
-			"path": "../sub-agents-mcp-nick"
+			"name": "mcp-server-subagent",
+			"path": "../mcp-server-subagent"
 		}
 	],
 	"settings": {}
