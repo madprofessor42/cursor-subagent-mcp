@@ -89,6 +89,10 @@ async def invoke_subagent(
         str,
         "The task or instruction to give to the agent",
     ],
+    cwd: Annotated[
+        str,
+        "Working directory path (project root) where the agent should execute. Files created by the agent will be placed here.",
+    ],
     context: Annotated[
         str,
         "Additional context like file contents, previous results, or project description",
@@ -120,6 +124,7 @@ async def invoke_subagent(
         agent_role: Which agent to invoke.
         task: The specific task for the agent.
         context: Additional context (files, previous outputs, etc.).
+        cwd: Working directory (project root) where agent should work.
         model: Override the default model (optional).
         timeout: Execution timeout in seconds (optional).
 
@@ -175,8 +180,10 @@ async def invoke_subagent(
         system_prompt=system_prompt,
         task=task,
         model=model_to_use,
+        cwd=cwd,
         context=context,
         timeout=timeout,
+        agent_role=agent_role,
     )
 
     return {
@@ -185,6 +192,8 @@ async def invoke_subagent(
         "error": result.error,
         "agent_role": agent_role,
         "model_used": model_to_use,
+        "session_id": result.session_id,
+        "duration_ms": result.duration_ms,
     }
 
 

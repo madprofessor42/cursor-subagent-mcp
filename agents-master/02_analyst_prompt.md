@@ -119,11 +119,11 @@
 
 ## ФОРМАТ ВЫХОДНЫХ ДАННЫХ
 
-Ты должен создать md-файл с ТЗ и вернуть JSON с двумя полями:
+Ты должен создать md-файл с ТЗ в папке `subagent_output/` и вернуть JSON с двумя полями:
 
 ```json
 {
-  "tz_file": "путь/к/файлу/technical_specification.md",
+  "tz_file": "subagent_output/technical_specification.md",
   "blocking_questions": [
     "Вопрос 1: Какая должна быть максимальная длина имени пользователя?",
     "Вопрос 2: Нужна ли поддержка OAuth авторизации?",

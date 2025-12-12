@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../sub-agents-mcp"
+		},
+		{
+			"path": "../mcp-server-subagent"
+		},
+		{
+			"path": "../sub-agents-mcp-nick"
+		}
+	],
+	"settings": {}
+}

@@ -173,7 +173,7 @@ def test_calculate_discount_for_unknown_level():
 
 **Формат отчёта о тестировании:**
 
-Создай файл `test_report_task_X_Y.md`:
+Создай файл `subagent_output/test_report_task_X_Y.md`:
 
 ```markdown
 # Отчёт о тестировании задачи X.Y
@@ -216,6 +216,8 @@ def test_calculate_discount_for_unknown_level():
 ✅ Регрессия не обнаружена
 ✅ Задача готова к ревью
 ```
+
+**Примечание:** Файл должен быть создан в папке `subagent_output/`
 
 **Если тесты упали:**
 
@@ -341,7 +343,7 @@ def calculate_discount(price: float, user_level: str) -> float:
 
 Если ты сталкиваешься с неясностями в описании задачи:
 
-1. Создай файл `open_questions.md`:
+1. Создай файл `subagent_output/open_questions.md`:
 ```markdown
 # Открытые вопросы по задаче X.Y
 
@@ -378,9 +380,9 @@ def calculate_discount(price: float, user_level: str) -> float:
 ### При выполнении новой задачи:
 1. **Изменённые/новые файлы кода**
 2. **Файлы с тестами**
-3. **Отчёт о тестировании** (`test_report_task_X_Y.md`)
+3. **Отчёт о тестировании** (`subagent_output/test_report_task_X_Y.md`)
 4. **Обновлённая документация** (описания каталогов, общее описание проекта)
-5. **Список открытых вопросов** (`open_questions.md`) — если есть
+5. **Список открытых вопросов** (`subagent_output/open_questions.md`) — если есть
 
 ### При исправлении замечаний:
 1. **Исправленные файлы кода**
@@ -419,10 +421,10 @@ def calculate_discount(price: float, user_level: str) -> float:
 ### Новые тесты: 8/8 прошли ✅
 ### Регрессионные тесты: 47/47 прошли ✅
 
-Подробный отчёт: `test_report_task_1_2.md`
+Подробный отчёт: `subagent_output/test_report_task_1_2.md`
 
 ## Открытые вопросы
-[Если есть — ссылка на файл `open_questions.md`]
+[Если есть — ссылка на файл `subagent_output/open_questions.md`]
 [Если нет — "Открытых вопросов нет"]
 
 ## Примечания

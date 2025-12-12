@@ -14,8 +14,8 @@ MCP-сервер для оркестрации мультиагентной ра
 ### 📝 Готовые промпты для каждой роли
 
 Не нужно каждый раз придумывать как правильно поставить задачу:
-- **8 специализированных агентов** с отточенными промптами
-- Аналитик, Архитектор, Планировщик, Разработчик и их ревьюеры
+- **9 специализированных агентов** с отточенными промптами
+- Executor для простых задач, Аналитик, Архитектор, Планировщик, Разработчик и их ревьюеры
 - Промпты оптимизированы для качественного результата
 
 ### 🔄 Отлаженный workflow
@@ -45,7 +45,7 @@ MCP-сервер для оркестрации мультиагентной ра
 ```mermaid
 flowchart TB
     subgraph CursorUI ["Cursor UI"]
-        User["👤 User<br/><i>Разработай REST API...</i>"]
+        User["👤 User<br/><i>Задача...</i>"]
         Orchestrator["🎯 Orchestrator Agent<br/><i>Claude в UI</i>"]
     end
     
@@ -59,10 +59,11 @@ flowchart TB
     subgraph Files ["Файлы конфигурации"]
         OrchestratorMD["01_orchestrator.md"]
         AgentsYAML["agents.yaml"]
-        PromptFiles["02-09_*.md<br/><i>промпты агентов</i>"]
+        PromptFiles["02-10_*.md<br/><i>промпты агентов</i>"]
     end
     
     subgraph CLI ["cursor-agent CLI"]
+        Executor["executor<br/><i>простые задачи</i>"]
         Analyst["analyst"]
         TZReviewer["tz_reviewer"]
         Architect["architect"]
@@ -96,14 +97,45 @@ flowchart TB
 
 1. **User** даёт задачу Orchestrator Agent в Cursor UI
 2. **Orchestrator** вызывает `get_orchestration_guide()` — получает инструкции и список агентов
-3. **Orchestrator** последовательно вызывает `invoke_subagent()` для каждого этапа:
-   - `analyst` → `tz_reviewer` → `architect` → `architecture_reviewer` → `planner` → `plan_reviewer` → `developer` → `code_reviewer`
+3. **Orchestrator** классифицирует задачу:
+
+   **Простая задача** (исследование, мелкие правки, добавление атрибутов):
+   - Вызывает `executor` напрямую → получает результат
+
+   **Сложная задача** (новый функционал, архитектурные изменения):
+   - **Сначала**: `executor` (исследование проекта)
+   - **Затем**: `analyst` → `tz_reviewer` → `architect` → `architecture_reviewer` → `planner` → `plan_reviewer` → `developer` → `code_reviewer`
+
 4. Результат каждого агента передаётся следующему через параметр `context`
 5. **Orchestrator** возвращает финальный результат пользователю
 
-> **Важно:** Субагенты НЕ вызывают друг друга напрямую. Весь workflow управляется Orchestrator через последовательные вызовы `invoke_subagent()`.
+> **Важно:** Orchestrator — только координатор! Он НЕ исследует код, НЕ анализирует проект сам. Всё делегируется субагентам через `invoke_subagent()`.
 
-### Sequence диаграмма
+### Sequence диаграмма (простые задачи)
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant O as 🎯 Orchestrator
+    participant MCP as ⚙️ MCP Server
+    participant CLI as 🔧 cursor-agent
+
+    U->>O: Поисследуй структуру проекта
+    
+    Note over O,MCP: Получение инструкций
+    O->>MCP: get_orchestration_guide()
+    MCP-->>O: {guide, agents}
+    
+    Note over O: Классификация: простая задача
+    O->>MCP: invoke_subagent(executor, task)
+    MCP->>CLI: cursor-agent -p "executor prompt"
+    CLI-->>MCP: output/analysis.md
+    MCP-->>O: {success, output_file, modified_files}
+    
+    O->>U: ✅ Результат в output/analysis.md
+```
+
+### Sequence диаграмма (сложные задачи)
 
 ```mermaid
 sequenceDiagram
@@ -118,8 +150,14 @@ sequenceDiagram
     O->>MCP: get_orchestration_guide()
     MCP-->>O: {guide, agents}
     
+    Note over O,CLI: Этап 0: Исследование проекта
+    O->>MCP: invoke_subagent(executor, "Исследуй проект")
+    MCP->>CLI: cursor-agent -p "executor prompt"
+    CLI-->>MCP: output/project_analysis.md
+    MCP-->>O: {success, output_file}
+    
     Note over O,CLI: Этап 1: Анализ
-    O->>MCP: invoke_subagent(analyst, task)
+    O->>MCP: invoke_subagent(analyst, task, context=исследование)
     MCP->>CLI: cursor-agent -p "analyst prompt"
     CLI-->>MCP: ТЗ
     MCP-->>O: {success, output: ТЗ}
@@ -226,7 +264,7 @@ source ~/.zshrc
   "cursor_agent_available": true,
   "cursor_agent_message": "cursor-agent found at: /Users/.../.local/bin/cursor-agent",
   "config_loaded": true,
-  "agent_count": 8
+  "agent_count": 9
 }
 ```
 
@@ -256,9 +294,9 @@ source ~/.zshrc
 
 ```python
 invoke_subagent(
-    agent_role="analyst",      # analyst, architect, planner, developer, *_reviewer
-    task="Создай ТЗ для...",   # задача
-    context="...",             # результаты предыдущих агентов
+    agent_role="executor",     # executor, analyst, architect, planner, developer, *_reviewer
+    task="Поисследуй проект",  # задача
+    context="...",             # код проекта или результаты предыдущих агентов
     model="claude-sonnet-4",   # опционально
     timeout=300                # опционально
 )
@@ -279,6 +317,7 @@ invoke_subagent(
 
 | Роль | Описание | Промпт |
 |------|----------|--------|
+| `executor` | **Простые задачи:** исследование, мелкие правки, добавление атрибутов | `10_executor_agent.md` |
 | `analyst` | Создаёт ТЗ с юзер-кейсами | `02_analyst_prompt.md` |
 | `tz_reviewer` | Проверяет качество ТЗ | `03_tz_reviewer_prompt.md` |
 | `architect` | Проектирует архитектуру | `04_architect_prompt.md` |

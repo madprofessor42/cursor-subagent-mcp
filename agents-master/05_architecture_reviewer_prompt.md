@@ -260,11 +260,11 @@
 
 ## ФОРМАТ ВЫХОДНЫХ ДАННЫХ
 
-Ты должен создать файл с замечаниями и вернуть JSON:
+Ты должен создать файл с замечаниями в папке `subagent_output/` и вернуть JSON:
 
 ```json
 {
-  "review_file": "путь/к/файлу/architecture_review.md",
+  "review_file": "subagent_output/architecture_review.md",
   "has_critical_issues": true/false
 }
 ```

@@ -57,11 +57,25 @@ cursor-agent --version
 
 ```sh
 # Запуск агента в неинтерактивном режиме
-cursor-agent -f --model <model> -p "<prompt>"
+# --print (-p) включает non-interactive режим
+# prompt передаётся как позиционный аргумент
+cursor-agent --print --model "<model>" -f "<prompt>"
 
 # Пример
-cursor-agent -f --model claude-sonnet-4-20250514 -p "Напиши Hello World на Python"
+cursor-agent --print --model "opus-4.5" -f "Напиши Hello World на Python"
+
+# С JSON выводом для парсинга
+cursor-agent --print --output-format json --model "opus-4.5" -f "<prompt>"
+
+# Со стримингом событий в реальном времени
+cursor-agent --print --output-format stream-json --model "opus-4.5" -f "<prompt>"
+
+# С рандомной моедлью
+cursor-agent --print --output-format stream-json --model "auto" -f "Напиши Hello World на Python"
+
 ```
+
+
 
 ---
 

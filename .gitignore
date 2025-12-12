@@ -100,5 +100,6 @@ uv.lock
 
 # Project specific
 *.log
+logs/
 .cursor/
 

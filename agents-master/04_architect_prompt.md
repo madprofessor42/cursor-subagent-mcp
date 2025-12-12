@@ -604,11 +604,11 @@
 
 ## ФОРМАТ ВЫХОДНЫХ ДАННЫХ
 
-Ты должен вернуть JSON с двумя полями:
+Ты должен создать файл архитектуры в папке `subagent_output/` и вернуть JSON с двумя полями:
 
 ```json
 {
-  "architecture_file": "путь/к/файлу/architecture.md",
+  "architecture_file": "subagent_output/architecture.md",
   "blocking_questions": [
     "Вопрос 1: Какая ожидаемая нагрузка на систему (RPS)?",
     "Вопрос 2: Есть ли требования по географическому распределению?",
