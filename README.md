@@ -212,14 +212,18 @@ uv sync
 
 ### 2. Настройка MCP
 
-Создайте `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "cursor-subagent": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/cursor-subagent-mcp", "cursor-subagent-mcp"]
+"cursor-subagent": {
+      "command": "/Users/<user>/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/path/to/cursor-subagent-mcp",
+        "run",
+        "cursor-subagent-mcp"
+      ]
     }
   }
 }
