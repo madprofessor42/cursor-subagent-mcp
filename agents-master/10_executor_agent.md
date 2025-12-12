@@ -119,20 +119,19 @@
 ```json
 {
   "output_file": "subagent_output/<название>_<timestamp>.md",
-  "modified_files": {
-    "path/to/file1.py": "полное содержимое файла после изменений",
-    "path/to/file2.tsx": "полное содержимое файла после изменений"
-  },
+  "modified_files": [
+    "path/to/file1.py",
+    "path/to/file2.tsx"
+  ],
   "status": "success"
 }
 ```
 
 **Правила для `modified_files`:**
-- Ключи — это пути к файлам относительно корня проекта (cwd)
-- Значения — это **полное содержимое файла** после всех изменений
+- Массив путей к файлам относительно корня проекта (cwd)
 - Включай ВСЕ изменённые и созданные файлы кода
 - НЕ включай файл отчёта (output_file) — он указан отдельным полем
-- Если код не изменялся, `modified_files` будет пустым объектом: `{}`
+- Если код не изменялся, `modified_files` будет пустым массивом: `[]`
 
 **Примеры:**
 
@@ -140,7 +139,7 @@
 ```json
 {
   "output_file": "subagent_output/analysis_2024-01-15_14-30.md",
-  "modified_files": {},
+  "modified_files": [],
   "status": "success"
 }
 ```
@@ -149,10 +148,10 @@
 ```json
 {
   "output_file": "subagent_output/test_id_addition_2024-01-15_15-45.md",
-  "modified_files": {
-    "hello-world.py": "print('Hello, World!')\n",
-    "src/components/Button.tsx": "import React from 'react';\n\nexport const Button = () => {\n  return <button data-testid=\"button-submit\">...</button>;\n};"
-  },
+  "modified_files": [
+    "hello-world.py",
+    "src/components/Button.tsx"
+  ],
   "status": "success"
 }
 ```
@@ -185,7 +184,7 @@
 ```json
 {
   "output_file": "subagent_output/error_report_2024-01-15_14-30.md",
-  "modified_files": {},
+  "modified_files": [],
   "status": "error",
   "error": "Краткое описание проблемы"
 }

@@ -8,33 +8,15 @@ from typing import Annotated, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from .config import Config, load_config, load_prompt_file
-from .executor import (
-    check_cursor_agent_available,
-    detect_shell,
-    install_cursor_cli,
-    invoke_cursor_agent,
+from .tools import (
+    check_status as check_status_impl,
+    get_orchestration_guide as get_orchestration_guide_impl,
+    invoke_subagent as invoke_subagent_impl,
+    setup_cursor_cli as setup_cursor_cli_impl,
 )
 
 # Initialize the MCP server
 mcp = FastMCP("Cursor Subagent Orchestrator")
-
-# Global config - loaded on first access
-_config: Optional[Config] = None
-
-
-def get_config() -> Config:
-    """Get or load the configuration."""
-    global _config
-    if _config is None:
-        _config = load_config()
-    return _config
-
-
-def _load_orchestrator_guide() -> str:
-    """Load orchestrator guide from file."""
-    config = get_config()
-    return load_prompt_file(config, config.orchestrator_prompt_file)
 
 
 @mcp.tool()
@@ -54,29 +36,7 @@ def get_orchestration_guide() -> dict:
         - guide: Full orchestrator instructions (from 01_orchestrator.md)
         - agents: Dictionary of available agents with descriptions
     """
-    config = get_config()
-
-    # Get agents list
-    agents = {}
-    for role, agent in config.agents.items():
-        agents[role] = {
-            "name": agent.name,
-            "description": agent.description,
-        }
-
-    # Load orchestrator guide from file
-    try:
-        guide = _load_orchestrator_guide()
-    except FileNotFoundError as e:
-        return {
-            "error": str(e),
-            "agents": agents,
-        }
-
-    return {
-        "guide": guide,
-        "agents": agents,
-    }
+    return get_orchestration_guide_impl()
 
 
 @mcp.tool()
@@ -136,65 +96,14 @@ async def invoke_subagent(
         - agent_role: The role that was invoked
         - model_used: The model that was used
     """
-    # Check if cursor-agent is available
-    available, message = check_cursor_agent_available()
-    if not available:
-        return {
-            "success": False,
-            "output": "",
-            "error": message,
-            "agent_role": agent_role,
-            "model_used": None,
-        }
-
-    config = get_config()
-
-    # Validate agent role
-    if agent_role not in config.agents:
-        available_roles = ", ".join(config.agents.keys())
-        return {
-            "success": False,
-            "output": "",
-            "error": f"Unknown agent role: '{agent_role}'. Available: {available_roles}",
-            "agent_role": agent_role,
-            "model_used": None,
-        }
-
-    agent = config.agents[agent_role]
-    model_to_use = model or agent.default_model
-
-    # Load the system prompt
-    try:
-        system_prompt = load_prompt_file(config, agent.prompt_file)
-    except FileNotFoundError as e:
-        return {
-            "success": False,
-            "output": "",
-            "error": str(e),
-            "agent_role": agent_role,
-            "model_used": model_to_use,
-        }
-
-    # Execute the agent
-    result = await invoke_cursor_agent(
-        system_prompt=system_prompt,
+    return await invoke_subagent_impl(
+        agent_role=agent_role,
         task=task,
-        model=model_to_use,
         cwd=cwd,
         context=context,
+        model=model,
         timeout=timeout,
-        agent_role=agent_role,
     )
-
-    return {
-        "success": result.success,
-        "output": result.output,
-        "error": result.error,
-        "agent_role": agent_role,
-        "model_used": model_to_use,
-        "session_id": result.session_id,
-        "duration_ms": result.duration_ms,
-    }
 
 
 @mcp.tool()
@@ -216,16 +125,7 @@ async def setup_cursor_cli() -> dict:
         - error: Error message if failed
         - shell: Detected shell (zsh/bash)
     """
-    shell = detect_shell()
-
-    result = await install_cursor_cli()
-
-    return {
-        "success": result.success,
-        "output": result.output,
-        "error": result.error,
-        "shell": shell,
-    }
+    return await setup_cursor_cli_impl()
 
 
 @mcp.tool()
@@ -237,27 +137,7 @@ def check_status() -> dict:
     - Whether the configuration is loaded
     - Number of configured agents
     """
-    # Check cursor-agent
-    cli_available, cli_message = check_cursor_agent_available()
-
-    # Check config
-    try:
-        config = get_config()
-        config_loaded = True
-        config_error = None
-        agent_count = len(config.agents)
-    except Exception as e:
-        config_loaded = False
-        config_error = str(e)
-        agent_count = 0
-
-    return {
-        "cursor_agent_available": cli_available,
-        "cursor_agent_message": cli_message,
-        "config_loaded": config_loaded,
-        "config_error": config_error,
-        "agent_count": agent_count,
-    }
+    return check_status_impl()
 
 
 def main():

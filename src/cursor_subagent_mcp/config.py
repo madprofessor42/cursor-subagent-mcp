@@ -34,6 +34,10 @@ class Config(BaseModel):
     )
 
 
+# Global config - loaded on first access
+_config: Optional[Config] = None
+
+
 def find_config_file() -> Optional[Path]:
     """Find the agents.yaml configuration file.
 
@@ -141,4 +145,12 @@ def load_prompt_file(config: Config, relative_path: str) -> str:
     """
     prompt_path = resolve_prompt_path(config, relative_path)
     return prompt_path.read_text(encoding="utf-8")
+
+
+def get_config() -> Config:
+    """Get or load the configuration."""
+    global _config
+    if _config is None:
+        _config = load_config()
+    return _config
 

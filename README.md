@@ -50,10 +50,26 @@ flowchart TB
     end
     
     subgraph MCPServer ["cursor-subagent MCP Server"]
-        GetGuide["get_orchestration_guide()"]
-        InvokeSubagent["invoke_subagent()"]
-        CheckStatus["check_status()"]
-        SetupCLI["setup_cursor_cli()"]
+        subgraph ServerLayer ["server.py<br/>Точка входа"]
+            Server["FastMCP<br/>Регистрация тулов"]
+        end
+        
+        subgraph ToolsLayer ["tools/<br/>MCP-тулы"]
+            GetGuide["orchestration.py<br/>get_orchestration_guide()"]
+            InvokeSubagent["invoke.py<br/>invoke_subagent()"]
+            CheckStatus["status.py<br/>check_status()"]
+            SetupCLI["setup.py<br/>setup_cursor_cli()"]
+        end
+        
+        subgraph ExecutorLayer ["executor/<br/>Выполнение CLI"]
+            Runner["runner.py<br/>invoke_cursor_agent()"]
+            CLI["cli.py<br/>find_cursor_agent()"]
+            Installer["installer.py<br/>install_cursor_cli()"]
+        end
+        
+        subgraph ConfigLayer ["config.py<br/>Конфигурация"]
+            Config["get_config()<br/>load_prompt_file()"]
+        end
     end
     
     subgraph Files ["Файлы конфигурации"]
@@ -62,7 +78,7 @@ flowchart TB
         PromptFiles["02-10_*.md<br/><i>промпты агентов</i>"]
     end
     
-    subgraph CLI ["cursor-agent CLI"]
+    subgraph CLIAgents ["cursor-agent CLI"]
         Executor["executor<br/><i>простые задачи</i>"]
         Analyst["analyst"]
         TZReviewer["tz_reviewer"]
@@ -76,20 +92,28 @@ flowchart TB
 
     User -->|"задача"| Orchestrator
     
-    Orchestrator -->|"MCP"| GetGuide
-    Orchestrator -->|"MCP"| InvokeSubagent
-    Orchestrator -->|"MCP"| CheckStatus
-    Orchestrator -->|"MCP"| SetupCLI
+    Orchestrator -->|"MCP"| Server
+    Server -->|"регистрирует"| GetGuide
+    Server -->|"регистрирует"| InvokeSubagent
+    Server -->|"регистрирует"| CheckStatus
+    Server -->|"регистрирует"| SetupCLI
     
-    GetGuide -.->|"читает"| OrchestratorMD
-    GetGuide -.->|"читает"| AgentsYAML
+    GetGuide -->|"использует"| Config
+    InvokeSubagent -->|"использует"| Config
+    InvokeSubagent -->|"использует"| Runner
+    CheckStatus -->|"использует"| Config
+    CheckStatus -->|"использует"| CLI
+    SetupCLI -->|"использует"| Installer
     
-    InvokeSubagent -.->|"читает промпт"| PromptFiles
-    InvokeSubagent -->|"subprocess<br/>cursor-agent --output-format stream-json"| CLI
+    Config -.->|"читает"| OrchestratorMD
+    Config -.->|"читает"| AgentsYAML
+    Config -.->|"читает"| PromptFiles
     
-    CLI -->|"NDJSON stream<br/>(events)"| InvokeSubagent
-    InvokeSubagent -->|"обработка событий<br/>(assistant messages, tool calls)"| InvokeSubagent
-    InvokeSubagent -->|"результат<br/>{success, output, session_id}"| Orchestrator
+    Runner -->|"subprocess<br/>cursor-agent --output-format stream-json"| CLIAgents
+    CLIAgents -->|"NDJSON stream<br/>(events)"| Runner
+    Runner -->|"обработка событий<br/>(assistant messages, tool calls)"| Runner
+    Runner -->|"результат<br/>{success, output, session_id}"| InvokeSubagent
+    InvokeSubagent -->|"результат"| Orchestrator
     Orchestrator -->|"context"| Orchestrator
     Orchestrator -->|"итог"| User
 ```
@@ -110,6 +134,45 @@ flowchart TB
 5. **Orchestrator** возвращает финальный результат пользователю
 
 > **Важно:** Orchestrator — только координатор! Он НЕ исследует код, НЕ анализирует проект сам. Всё делегируется субагентам через `invoke_subagent()`.
+
+### Структура проекта
+
+Проект организован в модульную структуру с четким разделением ответственности:
+
+```
+src/cursor_subagent_mcp/
+├── server.py              # Точка входа, инициализация FastMCP, регистрация MCP-тулов
+├── config.py             # Управление конфигурацией (singleton, загрузка agents.yaml)
+├── tools/                 # MCP-тулы (бизнес-логика)
+│   ├── __init__.py       # Публичный API модуля tools
+│   ├── orchestration.py  # get_orchestration_guide() - получение инструкций и списка агентов
+│   ├── invoke.py         # invoke_subagent() - вызов субагентов
+│   ├── setup.py          # setup_cursor_cli() - установка cursor-agent CLI
+│   └── status.py         # check_status() - проверка статуса сервера
+└── executor/             # Выполнение cursor-agent CLI
+    ├── __init__.py       # Публичный API модуля executor
+    ├── runner.py         # invoke_cursor_agent() - основная логика выполнения с обработкой NDJSON
+    ├── cli.py            # find_cursor_agent(), check_cursor_agent_available()
+    ├── shell.py          # detect_shell(), get_shell_config_file()
+    ├── installer.py      # install_cursor_cli() - установка CLI
+    ├── logging.py        # get_logger() - настройка логирования
+    ├── models.py         # StreamEvent, ExecutionResult - модели данных
+    └── utils.py          # strip_ansi(), extract_final_json() - утилиты
+```
+
+**Слои архитектуры:**
+
+1. **Слой инициализации** (`server.py`) - точка входа, регистрация MCP-тулов через FastMCP
+2. **Слой инструментов** (`tools/`) - MCP-тулы, бизнес-логика оркестрации
+3. **Слой выполнения** (`executor/`) - выполнение cursor-agent CLI, обработка потоков событий
+4. **Слой конфигурации** (`config.py`) - управление конфигурацией агентов и промптов
+
+**Зависимости между слоями:**
+
+- `server.py` → `tools/` (регистрация тулов)
+- `tools/` → `executor/` (выполнение агентов), `config.py` (загрузка конфигурации)
+- `executor/` → `config.py` (только `find_config_file` для определения пути к логам)
+- `config.py` → нет зависимостей (базовый модуль)
 
 ### Sequence диаграмма (простые задачи)
 
@@ -375,6 +438,28 @@ agents:
 
 ## Разработка
 
+### Структура модулей
+
+Проект использует модульную архитектуру с четким разделением ответственности:
+
+- **`server.py`** - точка входа, инициализирует FastMCP и регистрирует все MCP-тулы из `tools/`
+- **`tools/`** - содержит реализацию всех MCP-тулов:
+  - `orchestration.py` - загрузка инструкций оркестратора и списка агентов
+  - `invoke.py` - вызов субагентов через cursor-agent CLI
+  - `setup.py` - установка и настройка cursor-agent CLI
+  - `status.py` - проверка статуса сервера и зависимостей
+- **`executor/`** - модули для выполнения cursor-agent CLI:
+  - `runner.py` - основная логика выполнения с обработкой NDJSON потока
+  - `cli.py` - поиск и проверка доступности cursor-agent
+  - `shell.py` - определение оболочки пользователя
+  - `installer.py` - установка cursor-agent CLI
+  - `logging.py` - настройка логирования в файлы
+  - `models.py` - модели данных (StreamEvent, ExecutionResult)
+  - `utils.py` - утилиты для работы с текстом (удаление ANSI кодов, извлечение JSON)
+- **`config.py`** - управление конфигурацией (singleton паттерн, загрузка `agents.yaml`)
+
+### Запуск
+
 ```bash
 # Запуск тестов
 uv run pytest
@@ -382,6 +467,20 @@ uv run pytest
 # Локальный запуск сервера
 uv run cursor-subagent-mcp
 ```
+
+### Добавление нового MCP-тула
+
+1. Создайте новый модуль в `tools/` (например, `tools/my_tool.py`)
+2. Реализуйте функцию тула
+3. Добавьте экспорт в `tools/__init__.py`
+4. Зарегистрируйте тул в `server.py` через декоратор `@mcp.tool()`
+
+### Добавление нового модуля в executor
+
+1. Создайте новый модуль в `executor/` (например, `executor/my_module.py`)
+2. Реализуйте необходимые функции
+3. Если функции должны быть доступны извне executor, добавьте экспорт в `executor/__init__.py`
+4. Используйте функции в других модулях через импорт из `executor`
 
 ## Лицензия
 

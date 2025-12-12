@@ -399,21 +399,21 @@ def calculate_discount(price: float, user_level: str) -> float:
 {
   "status": "success",
   "test_report_file": "subagent_output/test_report_task_X_Y.md",
-  "modified_files": {
-    "src/services/discount_service.py": "полное содержимое файла после изменений",
-    "src/services/order_service.py": "полное содержимое файла после изменений",
-    "tests/test_discount_service.py": "полное содержимое файла после изменений"
-  },
+  "modified_files": [
+    "src/services/discount_service.py",
+    "src/services/order_service.py",
+    "tests/test_discount_service.py"
+  ],
   "open_questions_file": "subagent_output/open_questions.md",
   "summary": "Краткое описание выполненных изменений"
 }
 ```
 
 **Правила для `modified_files`:**
-- Ключи — это пути к файлам относительно корня проекта (cwd)
-- Значения — это **полное содержимое файла** после всех изменений
+- Массив путей к файлам относительно корня проекта (cwd)
 - Включай ВСЕ изменённые и созданные файлы кода
 - НЕ включай файлы отчётов (test_report, open_questions) — они указаны отдельными полями
+- Если файлы не изменялись, используй пустой массив: `[]`
 
 **ВАЖНО:** JSON должен быть последним в твоём ответе. Оркестратор извлекает только финальный JSON блок.
 

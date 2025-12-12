@@ -574,16 +574,16 @@ invoke_subagent(
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ ОТ РАЗРАБОТЧИКА:
 {
+  "status": "success",
+  "test_report_file": "subagent_output/test_report_task_X_Y.md",
   "modified_files": ["файл1.py", "файл2.py"],
-  "new_files": ["test_file.py"],
-  "test_report": "путь/к/отчёту/test_report.md",
-  "documentation_updated": true,
-  "open_questions": ["вопрос 1"]
+  "open_questions_file": "subagent_output/open_questions.md",
+  "summary": "Краткое описание выполненных изменений"
 }
 
 ЛОГИКА ПРИНЯТИЯ РЕШЕНИЯ:
-- ЕСЛИ есть открытые вопросы → останови процесс, передай вопросы пользователю
-- ЕСЛИ открытых вопросов нет → переходи к review кода
+- ЕСЛИ присутствует поле `open_questions_file` и оно не пустое → останови процесс, передай вопросы пользователю (прочитай файл из `open_questions_file`)
+- ЕСЛИ поле `open_questions_file` отсутствует или пустое → переходи к review кода
 
 ТЕКУЩИЙ ЭТАП: Выполнение задач
 ЗАДАЧА: {current_task_number} из {total_tasks}
