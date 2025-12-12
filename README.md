@@ -85,10 +85,11 @@ flowchart TB
     GetGuide -.->|"читает"| AgentsYAML
     
     InvokeSubagent -.->|"читает промпт"| PromptFiles
-    InvokeSubagent -->|"subprocess"| CLI
+    InvokeSubagent -->|"subprocess<br/>cursor-agent --output-format stream-json"| CLI
     
-    CLI -->|"output"| InvokeSubagent
-    InvokeSubagent -->|"результат"| Orchestrator
+    CLI -->|"NDJSON stream<br/>(events)"| InvokeSubagent
+    InvokeSubagent -->|"обработка событий<br/>(assistant messages, tool calls)"| InvokeSubagent
+    InvokeSubagent -->|"результат<br/>{success, output, session_id}"| Orchestrator
     Orchestrator -->|"context"| Orchestrator
     Orchestrator -->|"итог"| User
 ```
@@ -103,8 +104,7 @@ flowchart TB
    - Вызывает `executor` напрямую → получает результат
 
    **Сложная задача** (новый функционал, архитектурные изменения):
-   - **Сначала**: `executor` (исследование проекта)
-   - **Затем**: `analyst` → `tz_reviewer` → `architect` → `architecture_reviewer` → `planner` → `plan_reviewer` → `developer` → `code_reviewer`
+   - `analyst` → `tz_reviewer` → `architect` → `architecture_reviewer` → `planner` → `plan_reviewer` → `developer` → `code_reviewer`
 
 4. Результат каждого агента передаётся следующему через параметр `context`
 5. **Orchestrator** возвращает финальный результат пользователю
@@ -127,10 +127,11 @@ sequenceDiagram
     MCP-->>O: {guide, agents}
     
     Note over O: Классификация: простая задача
-    O->>MCP: invoke_subagent(executor, task)
-    MCP->>CLI: cursor-agent -p "executor prompt"
-    CLI-->>MCP: output/analysis.md
-    MCP-->>O: {success, output_file, modified_files}
+    O->>MCP: invoke_subagent(executor, task, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "executor prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP->>MCP: обработка событий, извлечение output
+    MCP-->>O: {success: true, output: "результат", session_id, duration_ms}
     
     O->>U: ✅ Результат в output/analysis.md
 ```
@@ -150,56 +151,50 @@ sequenceDiagram
     O->>MCP: get_orchestration_guide()
     MCP-->>O: {guide, agents}
     
-    Note over O,CLI: Этап 0: Исследование проекта
-    O->>MCP: invoke_subagent(executor, "Исследуй проект")
-    MCP->>CLI: cursor-agent -p "executor prompt"
-    CLI-->>MCP: output/project_analysis.md
-    MCP-->>O: {success, output_file}
-    
     Note over O,CLI: Этап 1: Анализ
-    O->>MCP: invoke_subagent(analyst, task, context=исследование)
-    MCP->>CLI: cursor-agent -p "analyst prompt"
-    CLI-->>MCP: ТЗ
-    MCP-->>O: {success, output: ТЗ}
+    O->>MCP: invoke_subagent(analyst, task, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "analyst prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "ТЗ", session_id, duration_ms}
     
-    O->>MCP: invoke_subagent(tz_reviewer, context=ТЗ)
-    MCP->>CLI: cursor-agent -p "reviewer prompt"
-    CLI-->>MCP: замечания / ✅ OK
-    MCP-->>O: {success, output}
+    O->>MCP: invoke_subagent(tz_reviewer, "Проверь ТЗ", context=ТЗ, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "reviewer prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "замечания / ✅ OK", session_id, duration_ms}
     
     Note over O,CLI: Этап 2: Архитектура
-    O->>MCP: invoke_subagent(architect, context=ТЗ)
-    MCP->>CLI: cursor-agent -p "architect prompt"
-    CLI-->>MCP: архитектура
-    MCP-->>O: {success, output}
+    O->>MCP: invoke_subagent(architect, "Спроектируй архитектуру", context=ТЗ, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "architect prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "архитектура", session_id, duration_ms}
     
-    O->>MCP: invoke_subagent(architecture_reviewer, context)
-    MCP->>CLI: cursor-agent -p "reviewer prompt"
-    CLI-->>MCP: ✅ OK
-    MCP-->>O: {success, output}
+    O->>MCP: invoke_subagent(architecture_reviewer, "Проверь архитектуру", context, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "reviewer prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "✅ OK", session_id, duration_ms}
     
     Note over O,CLI: Этап 3: Планирование
-    O->>MCP: invoke_subagent(planner, context)
-    MCP->>CLI: cursor-agent -p "planner prompt"
-    CLI-->>MCP: план задач
-    MCP-->>O: {success, output}
+    O->>MCP: invoke_subagent(planner, "Создай план", context, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "planner prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "план задач", session_id, duration_ms}
     
-    O->>MCP: invoke_subagent(plan_reviewer, context)
-    MCP->>CLI: cursor-agent -p "reviewer prompt"
-    CLI-->>MCP: ✅ OK
-    MCP-->>O: {success, output}
+    O->>MCP: invoke_subagent(plan_reviewer, "Проверь план", context, cwd)
+    MCP->>CLI: cursor-agent --output-format stream-json -p "reviewer prompt"
+    CLI-->>MCP: NDJSON stream (events)
+    MCP-->>O: {success: true, output: "✅ OK", session_id, duration_ms}
     
     Note over O,CLI: Этап 4: Разработка (для каждой задачи)
     loop Для каждой задачи из плана
-        O->>MCP: invoke_subagent(developer, task=задача)
-        MCP->>CLI: cursor-agent -p "developer prompt"
-        CLI-->>MCP: код + тесты
-        MCP-->>O: {success, output}
+        O->>MCP: invoke_subagent(developer, task=задача, context, cwd)
+        MCP->>CLI: cursor-agent --output-format stream-json -p "developer prompt"
+        CLI-->>MCP: NDJSON stream (events: tool calls, code, tests)
+        MCP-->>O: {success: true, output: "код + тесты", session_id, duration_ms}
         
-        O->>MCP: invoke_subagent(code_reviewer, context=код)
-        MCP->>CLI: cursor-agent -p "reviewer prompt"
-        CLI-->>MCP: ✅ OK
-        MCP-->>O: {success, output}
+        O->>MCP: invoke_subagent(code_reviewer, "Проверь код", context=код, cwd)
+        MCP->>CLI: cursor-agent --output-format stream-json -p "reviewer prompt"
+        CLI-->>MCP: NDJSON stream (events)
+        MCP-->>O: {success: true, output: "✅ OK", session_id, duration_ms}
     end
     
     O->>U: ✅ Разработка завершена
@@ -296,9 +291,10 @@ source ~/.zshrc
 invoke_subagent(
     agent_role="executor",     # executor, analyst, architect, planner, developer, *_reviewer
     task="Поисследуй проект",  # задача
-    context="...",             # код проекта или результаты предыдущих агентов
-    model="claude-sonnet-4",   # опционально
-    timeout=300                # опционально
+    cwd="/path/to/project",    # рабочая директория (обязательно)
+    context="...",             # код проекта или результаты предыдущих агентов (опционально)
+    model="claude-sonnet-4",   # опционально, переопределяет default_model из agents.yaml
+    timeout=300                # опционально, таймаут в секундах
 )
 ```
 
@@ -309,23 +305,31 @@ invoke_subagent(
   "output": "Результат работы агента...",
   "error": null,
   "agent_role": "analyst",
-  "model_used": "claude-sonnet-4-20250514"
+  "model_used": "claude-sonnet-4-20250514",
+  "session_id": "f8122bb0-535f-480e-b781-66b95461827b",
+  "duration_ms": 45000
 }
 ```
 
+**Примечания:**
+- `output` содержит результат работы агента (текст или JSON, если агент вернул JSON)
+- `session_id` - уникальный идентификатор сессии cursor-agent
+- `duration_ms` - время выполнения в миллисекундах
+- При ошибках HTTP-соединения (например, "Premature close"), если есть полезный вывод, результат считается успешным
+
 ## Агенты
 
-| Роль | Описание | Промпт |
-|------|----------|--------|
-| `executor` | **Простые задачи:** исследование, мелкие правки, добавление атрибутов | `10_executor_agent.md` |
-| `analyst` | Создаёт ТЗ с юзер-кейсами | `02_analyst_prompt.md` |
-| `tz_reviewer` | Проверяет качество ТЗ | `03_tz_reviewer_prompt.md` |
-| `architect` | Проектирует архитектуру | `04_architect_prompt.md` |
-| `architecture_reviewer` | Проверяет архитектуру | `05_architecture_reviewer_prompt.md` |
-| `planner` | Создаёт план задач | `06_agent_planner.md` |
-| `plan_reviewer` | Проверяет план | `07_agent_plan_reviewer.md` |
-| `developer` | Реализует код и тесты | `08_agent_developer.md` |
-| `code_reviewer` | Проверяет код | `09_agent_code_reviewer.md` |
+| Роль | Описание | Промпт | Модель по умолчанию |
+|------|----------|--------|---------------------|
+| `executor` | **Простые задачи:** исследование, мелкие правки, добавление атрибутов | `10_executor_agent.md` | `composer-1` |
+| `analyst` | Создаёт ТЗ с юзер-кейсами | `02_analyst_prompt.md` | `opus-4.5-thinking` |
+| `tz_reviewer` | Проверяет качество ТЗ | `03_tz_reviewer_prompt.md` | `composer-1` |
+| `architect` | Проектирует архитектуру | `04_architect_prompt.md` | `opus-4.5-thinking` |
+| `architecture_reviewer` | Проверяет архитектуру | `05_architecture_reviewer_prompt.md` | `composer-1` |
+| `planner` | Создаёт план задач | `06_agent_planner.md` | `opus-4.5-thinking` |
+| `plan_reviewer` | Проверяет план | `07_agent_plan_reviewer.md` | `composer-1` |
+| `developer` | Реализует код и тесты | `08_agent_developer.md` | `composer-1` |
+| `code_reviewer` | Проверяет код | `09_agent_code_reviewer.md` | `composer-1` |
 
 Промпты находятся в `agents-master/`. Конфигурация агентов в `agents.yaml`.
 
@@ -341,6 +345,29 @@ agents:
     prompt_file: "agents-master/02_analyst_prompt.md"
     default_model: "claude-sonnet-4-20250514"
 ```
+
+## Технические детали
+
+### Обработка потоков
+
+Сервер использует `cursor-agent` CLI с форматом `stream-json` для получения событий в реальном времени:
+- События обрабатываются построчно (NDJSON формат)
+- Извлекаются сообщения ассистента, вызовы инструментов, результаты
+- Логирование всех событий в `logs/agents_YYYY-MM-DD.log`
+
+### Обработка ошибок
+
+- **Premature close / NGHTTP2_INTERNAL_ERROR**: Если процесс завершился с такой ошибкой, но есть полезный вывод (>100 символов), результат считается успешным
+- Потоки не закрываются вручную - процесс завершается естественным образом
+- Все ошибки логируются с контекстом выполнения
+
+### Логирование
+
+Логи сохраняются в `logs/agents_YYYY-MM-DD.log` с уровнем детализации:
+- `INFO`: Запуск агентов, чтение/запись файлов, завершение
+- `DEBUG`: События потока, обработка ошибок
+- `WARNING`: Предупреждения (например, JSON не найден в ответе)
+- `ERROR`: Ошибки выполнения
 
 ## Разработка
 
