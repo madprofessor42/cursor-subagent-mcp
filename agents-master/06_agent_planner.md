@@ -219,7 +219,7 @@
 
 Если ты сталкиваешься с неясностями или противоречиями:
 
-1. Создай файл `subagent_output/open_questions.md` со списком вопросов:
+1. Создай файл `subagent_output/open_questions_planner.md` со списком вопросов:
 ```markdown
 # Открытые вопросы по плану разработки
 
@@ -236,7 +236,7 @@
 3. Оркестратор остановит процесс и запросит ответы у пользователя
 
 **Если открытых вопросов нет:**
-- Не создавай файл `open_questions.md`
+- Не создавай файл `open_questions_planner.md`
 - В JSON ответе укажи `open_questions_file: null`
 
 **Когда задавать вопросы:**
@@ -256,11 +256,11 @@
 
 1. **Файл `subagent_output/plan.md`** — общий план с последовательностью задач
 2. **Файлы `subagent_output/tasks/task_X_Y.md`** — детальные описания каждой задачи
-3. **Файл `subagent_output/open_questions.md`** — список открытых вопросов (только если есть неопределённости)
+3. **Файл `subagent_output/open_questions_planner.md`** — список открытых вопросов (только если есть неопределённости)
 
 Все файлы должны быть в формате Markdown с чёткой структурой и располагаться в папке `subagent_output/`.
 
-**Важно:** Файл `open_questions.md` создаётся только при наличии открытых вопросов. Если вопросов нет, не создавай этот файл и укажи в JSON `open_questions_file: null`.
+**Важно:** Файл `open_questions_planner.md` создаётся только при наличии открытых вопросов. Если вопросов нет, не создавай этот файл и укажи в JSON `open_questions_file: null`.
 
 ## Чего НЕ делать
 
@@ -292,7 +292,7 @@
     "subagent_output/tasks/task_1_1.md",
     "subagent_output/tasks/task_1_2.md"
   ],
-  "open_questions_file": "subagent_output/open_questions.md"
+  "open_questions_file": "subagent_output/open_questions_planner.md"
 }
 ```
 

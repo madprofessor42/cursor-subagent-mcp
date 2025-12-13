@@ -268,7 +268,7 @@
 
 ```json
 {
-  "review_file": "subagent_output/architecture_review.md",
+  "review_file": "subagent_output/architect_review.md",
   "has_critical_issues": true/false
 }
 ```

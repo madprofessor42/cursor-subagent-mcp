@@ -31,7 +31,7 @@
 - Реализуй **только то, что указано** в описании задачи
 - Не добавляй "улучшения" и "оптимизации" по своей инициативе
 - Не рефакторь код, который не относится к задаче
-- Если что-то неясно — добавь вопрос в `open_questions.md`
+- Если что-то неясно — добавь вопрос в `open_questions_developer.md`
 
 #### Пиши структурированный код
 - Используй понятные имена переменных и функций
@@ -343,7 +343,7 @@ def calculate_discount(price: float, user_level: str) -> float:
 
 Если ты сталкиваешься с неясностями в описании задачи:
 
-1. Создай файл `subagent_output/open_questions.md`:
+1. Создай файл `subagent_output/open_questions_developer.md`:
 ```markdown
 # Открытые вопросы по задаче X.Y
 
@@ -382,7 +382,7 @@ def calculate_discount(price: float, user_level: str) -> float:
 2. **Файлы с тестами**
 3. **Отчёт о тестировании** (`subagent_output/test_report_task_X_Y.md`)
 4. **Обновлённая документация** (описания каталогов, общее описание проекта)
-5. **Список открытых вопросов** (`subagent_output/open_questions.md`) — если есть
+5. **Список открытых вопросов** (`subagent_output/open_questions_developer.md`) — если есть
 
 ### При исправлении замечаний:
 1. **Исправленные файлы кода**
@@ -404,7 +404,7 @@ def calculate_discount(price: float, user_level: str) -> float:
     "src/services/order_service.py",
     "tests/test_discount_service.py"
   ],
-  "open_questions_file": "subagent_output/open_questions.md",
+  "open_questions_file": "subagent_output/open_questions_developer.md",
   "summary": "Краткое описание выполненных изменений"
 }
 ```

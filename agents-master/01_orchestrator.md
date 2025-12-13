@@ -289,7 +289,7 @@ invoke_subagent(
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ ОТ АНАЛИТИКА:
 {
   "tz_file": "subagent_output/technical_specification.md",
-  "open_questions_file": "subagent_output/open_questions.md"
+  "open_questions_file": "subagent_output/open_questions_analyst.md"
 }
 
 ЛОГИКА ПРИНЯТИЯ РЕШЕНИЯ:
@@ -396,7 +396,7 @@ invoke_subagent(
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ ОТ АРХИТЕКТОРА:
 {
   "architecture_file": "subagent_output/architecture.md",
-  "open_questions_file": "subagent_output/open_questions.md"
+  "open_questions_file": "subagent_output/open_questions_architect.md"
 }
 
 ЛОГИКА ПРИНЯТИЯ РЕШЕНИЯ:
@@ -433,7 +433,7 @@ invoke_subagent(
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ ОТ РЕВЬЮЕРА:
 {
-  "review_file": "subagent_output/architecture_review.md",
+  "review_file": "subagent_output/architect_review.md",
   "has_critical_issues": true/false
 }
 
@@ -513,7 +513,7 @@ invoke_subagent(
     "subagent_output/tasks/task_1_1.md",
     "subagent_output/tasks/task_1_2.md"
   ],
-  "open_questions_file": "subagent_output/open_questions.md"
+  "open_questions_file": "subagent_output/open_questions_planner.md"
 }
 
 ЛОГИКА ПРИНЯТИЯ РЕШЕНИЯ:
@@ -634,7 +634,7 @@ invoke_subagent(
   "status": "success",
   "test_report_file": "subagent_output/test_report_task_X_Y.md",
   "modified_files": ["файл1.py", "файл2.py"],
-  "open_questions_file": "subagent_output/open_questions.md",
+  "open_questions_file": "subagent_output/open_questions_developer.md",
   "summary": "Краткое описание выполненных изменений"
 }
 
@@ -675,7 +675,7 @@ invoke_subagent(
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ ОТ РЕВЬЮЕРА:
 {
-  "comments": "текст с замечаниями",
+  "review_file": "subagent_output/code_review.md",
   "has_critical_issues": true/false,
   "e2e_tests_pass": true/false,
   "stubs_replaced": true/false
@@ -701,7 +701,7 @@ invoke_subagent(
 КОНТЕКСТ: Получены замечания от ревьюера кода
 
 ВХОДНЫЕ ДАННЫЕ:
-- Замечания: {review_comments}
+- Файл с замечаниями: {review_file}
 - Текущий код: {current_code}
 - Описание задачи: {task_description}
 
@@ -709,15 +709,16 @@ invoke_subagent(
 Передать замечания разработчику для исправления.
 
 ДЕЙСТВИЯ:
-1. Передай разработчику:
+1. Прочитай файл с замечаниями из {review_file}
+2. Передай разработчику:
    - Текущий код
-   - Замечания от ревьюера
+   - Замечания от ревьюера (из файла {review_file})
    - Инструкцию: исправить ТОЛЬКО указанные замечания
-2. Дождись исправленного кода
-3. Снова инициируй review
+3. Дождись исправленного кода
+4. Снова инициируй review
 
 ИНСТРУКЦИЯ ДЛЯ РАЗРАБОТЧИКА:
-"Исправь замечания: {review_comments}. НЕ рефактори код. НЕ вноси изменения, не связанные с замечаниями. Запусти тесты и предоставь отчёт."
+"Исправь замечания из файла {review_file}. НЕ рефактори код. НЕ вноси изменения, не связанные с замечаниями. Запусти тесты и предоставь отчёт."
 
 ТЕКУЩИЙ ЭТАП: Выполнение задач (Исправление)
 ЗАДАЧА: {current_task_number} из {total_tasks}

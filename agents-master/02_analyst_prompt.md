@@ -121,7 +121,7 @@
 
 Если ты сталкиваешься с неясностями или противоречиями:
 
-1. Создай файл `subagent_output/open_questions.md` со списком вопросов:
+1. Создай файл `subagent_output/open_questions_analyst.md` со списком вопросов:
 ```markdown
 # Открытые вопросы по техническому заданию
 
@@ -138,7 +138,7 @@
 3. Оркестратор остановит процесс и запросит ответы у пользователя
 
 **Если открытых вопросов нет:**
-- Не создавай файл `open_questions.md`
+- Не создавай файл `open_questions_analyst.md`
 - В JSON ответе укажи `open_questions_file: null`
 
 **Когда задавать вопросы:**
@@ -164,7 +164,7 @@
 ```json
 {
   "tz_file": "subagent_output/technical_specification.md",
-  "open_questions_file": "subagent_output/open_questions.md"
+  "open_questions_file": "subagent_output/open_questions_analyst.md"
 }
 ```
 
@@ -296,7 +296,7 @@
 - [ ] Описаны основные и альтернативные сценарии
 - [ ] Критерии приёмки конкретны и проверяемы
 - [ ] Использована терминология существующего проекта (если применимо)
-- [ ] Все неясные моменты добавлены в файл `open_questions.md` (если есть)
+- [ ] Все неясные моменты добавлены в файл `open_questions_analyst.md` (если есть)
 - [ ] ТЗ сохранено в файл
 - [ ] JSON с результатом корректно сформирован
 
