@@ -35,6 +35,10 @@ async def invoke_subagent(
         Optional[float],
         "Timeout in seconds for the agent execution (optional)",
     ] = None,
+    session_id: Annotated[
+        Optional[str],
+        "Full UUID string from previous invoke_subagent result to resume chat session. MUST be the complete UUID from result['session_id'] (e.g., '90b79ac7-8e9e-4148-a074-ffba07f88ffa'). Do NOT use partial UUIDs or examples. Copy the exact full session_id value from the previous result. If not provided, starts a new session.",
+    ] = None,
 ) -> dict:
     """Invoke a subagent to perform a specific task.
 
@@ -59,6 +63,7 @@ async def invoke_subagent(
                    If not provided, defaults to cwd.
         model: Override the default model (optional).
         timeout: Execution timeout in seconds (optional).
+        session_id: Session ID to resume an existing chat session (optional).
 
     Returns:
         A dictionary with:
@@ -128,6 +133,7 @@ async def invoke_subagent(
         context=context,
         timeout=timeout,
         agent_role=agent_role,
+        session_id=session_id,
     )
 
     return {

@@ -101,8 +101,10 @@ class TestInvokeSubagentMcp:
                 task="Create technical specification",
                 cwd="/tmp/test_project",
                 context="Additional context",
+                workspace=None,
                 model="claude-sonnet-4-20250514",
                 timeout=60.0,
+                session_id=None,
             )
 
     def test_invoke_subagent_mcp_parameter_annotations(self):
@@ -118,8 +120,10 @@ class TestInvokeSubagentMcp:
         assert "task" in sig.parameters
         assert "cwd" in sig.parameters
         assert "context" in sig.parameters
+        assert "workspace" in sig.parameters
         assert "model" in sig.parameters
         assert "timeout" in sig.parameters
+        assert "session_id" in sig.parameters
         
         # Проверяем типы параметров (Annotated имеет структуру Annotated[T, ...])
         agent_role_param = sig.parameters["agent_role"]
@@ -143,6 +147,12 @@ class TestInvokeSubagentMcp:
         assert args[0] == str
         assert context_param.default == ""
         
+        workspace_param = sig.parameters["workspace"]
+        assert get_origin(workspace_param.annotation) is Annotated
+        args = get_args(workspace_param.annotation)
+        assert args[0] == Optional[str]
+        assert workspace_param.default is None
+        
         model_param = sig.parameters["model"]
         assert get_origin(model_param.annotation) is Annotated
         args = get_args(model_param.annotation)
@@ -154,6 +164,12 @@ class TestInvokeSubagentMcp:
         args = get_args(timeout_param.annotation)
         assert args[0] == Optional[float]
         assert timeout_param.default is None
+        
+        session_id_param = sig.parameters["session_id"]
+        assert get_origin(session_id_param.annotation) is Annotated
+        args = get_args(session_id_param.annotation)
+        assert args[0] == Optional[str]
+        assert session_id_param.default is None
         
         # Проверяем наличие docstring
         assert server.invoke_subagent.__doc__ is not None

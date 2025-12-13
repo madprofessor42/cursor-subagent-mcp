@@ -207,6 +207,7 @@ async def invoke_cursor_agent(
     context: str = "",
     timeout: Optional[float] = None,
     agent_role: str = "agent",
+    session_id: Optional[str] = None,
 ) -> ExecutionResult:
     """Invoke cursor-agent CLI with streaming and logging.
 
@@ -219,6 +220,7 @@ async def invoke_cursor_agent(
         context: Additional context to include in the prompt.
         timeout: Optional timeout in seconds.
         agent_role: Role name for logging.
+        session_id: Optional session ID to resume an existing chat session.
 
     Returns:
         ExecutionResult with the output from the agent.
@@ -233,18 +235,10 @@ async def invoke_cursor_agent(
             error="cursor-agent CLI not found", return_code=-1,
         )
     
-    # Build prompt
-    prompt_parts = [system_prompt]
-    if context:
-        prompt_parts.append(f"\n\n## КОНТЕКСТ\n\n{context}")
-    prompt_parts.append(f"\n\n## ЗАДАЧА\n\n{task}")
-    full_prompt = "".join(prompt_parts)
-    
     workspace_dir = workspace or cwd
     
     # Log start
     task_preview = task[:80] + "..." if len(task) > 80 else task
-    logger.info(f"[{agent_role}] 🚀 Starting | Model: {model} | Task: {task_preview}")
     
     # Build command
     cmd = [
@@ -253,9 +247,29 @@ async def invoke_cursor_agent(
         "--output-format", "stream-json",
         "--model", model,
         "--workspace", workspace_dir,
-        "-f",
-        full_prompt,
     ]
+
+    logger.info(f"session_id: {session_id}")
+    
+    # If resuming session, only send task (system prompt already exists in session)
+    if session_id:
+        cmd.extend([f"--resume={session_id}"])
+        logger.info(f"[{agent_role}] 🔄 Resuming session: {session_id[:8]}...")
+        # For resume, only send task (with optional context), no system prompt
+        if context:
+            user_message = f"{context}\n\n## ЗАДАЧА\n\n{task}"
+        else:
+            user_message = task
+        cmd.extend(["-f", user_message])
+    else:
+        # New session: include system prompt
+        logger.info(f"[{agent_role}] 🚀 Starting | Model: {model} | Task: {task_preview}")
+        prompt_parts = [system_prompt]
+        if context:
+            prompt_parts.append(f"\n\n## КОНТЕКСТ\n\n{context}")
+        prompt_parts.append(f"\n\n## ЗАДАЧА\n\n{task}")
+        full_prompt = "".join(prompt_parts)
+        cmd.extend(["-f", full_prompt])
     
     state = _StreamState()
     event_logger = _EventLogger(logger, agent_role)

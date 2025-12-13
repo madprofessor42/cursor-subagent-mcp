@@ -73,6 +73,9 @@ cursor-agent --print --output-format stream-json --model "opus-4.5" -f "<prompt>
 # С рандомной моедлью
 cursor-agent --print --output-format stream-json --model "auto" -f "Напиши Hello World на Python"
 
+# С подключением к сессии
+
+cursor-agent --print --output-format stream-json --model "auto" --workspace "/Users/madprofessor/private/cursor-subagent-mcp" -f --resume=0e89b7b5-0a4f-4db0-8bc9-0179a9c0373f "Hi again"
 ```
 
 
