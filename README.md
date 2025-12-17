@@ -164,14 +164,16 @@ src/cursor_subagent_mcp/
 
 1. **Слой инициализации** (`server.py`) - точка входа, регистрация MCP-тулов через FastMCP
 2. **Слой инструментов** (`tools/`) - MCP-тулы, бизнес-логика оркестрации
+   - `orchestration.py` - загрузка системного оркестратора из пакета
+   - `setup.py` - установка CLI и инициализация агентов
 3. **Слой выполнения** (`executor/`) - выполнение cursor-agent CLI, обработка потоков событий
-4. **Слой конфигурации** (`config.py`) - управление конфигурацией агентов и промптов
+4. **Слой конфигурации** (`config.py`) - управление конфигурацией, загрузка пользовательских агентов из `CURSOR_AGENTS_DIR`
 
 **Зависимости между слоями:**
 
 - `server.py` → `tools/` (регистрация тулов)
 - `tools/` → `executor/` (выполнение агентов), `config.py` (загрузка конфигурации)
-- `executor/` → `config.py` (только `find_config_file` для определения пути к логам)
+- `executor/` → независимый модуль (логи пишет в `./logs`)
 - `config.py` → нет зависимостей (базовый модуль)
 
 ### Sequence диаграмма (простые задачи)
@@ -275,26 +277,40 @@ uv sync
 
 ### 2. Настройка MCP
 
-
 ```json
 {
   "mcpServers": {
-"cursor-subagent": {
+    "cursor-subagent": {
       "command": "/Users/<user>/.local/bin/uv",
       "args": [
         "--directory",
         "/path/to/cursor-subagent-mcp",
         "run",
         "cursor-subagent-mcp"
-      ]
+      ],
+      "env": {
+        "CURSOR_AGENTS_DIR": "/absolute/path/to/your/agents/dir"
+      }
     }
   }
 }
 ```
 
-> **Важно:** Замените `/path/to/cursor-subagent-mcp` на реальный путь к клонированному репозиторию.
+> **Важно:** 
+> 1. Замените `/path/to/cursor-subagent-mcp` на реальный путь к клонированному репозиторию.
+> 2. `CURSOR_AGENTS_DIR` указывает на папку, где будут храниться определения ваших агентов. Если не указано, сервер будет искать папку `agents` в текущей рабочей директории.
 
-### 3. Установка cursor-agent CLI
+### 3. Инициализация агентов (Optional)
+
+Если у вас ещё нет настроенных агентов, вы можете инициализировать стандартный набор в вашу папку:
+
+```
+Вызови init_default_agents для создания базовых агентов
+```
+
+Это скопирует стандартные определения (Analyst, Developer и др.) в директорию, указанную в `CURSOR_AGENTS_DIR` (или `./agents`).
+
+### 4. Установка cursor-agent CLI
 
 Попросите агента:
 ```
@@ -351,6 +367,7 @@ source ~/.zshrc
 | `invoke_subagent(agent_role, task, context)` | Вызывает субагента |
 | `check_status()` | Проверяет доступность cursor-agent CLI |
 | `setup_cursor_cli()` | Устанавливает cursor-agent CLI |
+| `init_default_agents(force)` | Инициализирует стандартные агенты в папку пользователя |
 
 ### invoke_subagent
 

@@ -1,12 +1,33 @@
 """Orchestration tool for multi-agent development."""
 
-from ..config import get_config, load_prompt_file
+from ..config import get_config, find_package_paths
 
 
 def _load_orchestrator_guide() -> str:
-    """Load orchestrator guide from file."""
+    """Load orchestrator guide and inject agent rules."""
     config = get_config()
-    return load_prompt_file(config, config.orchestrator_prompt_file)
+    
+    # Load base orchestrator guide from package resources
+    # This is an immutable system resource
+    orch_path, _ = find_package_paths()
+    
+    try:
+        base_guide = orch_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        base_guide = "Orchestrator guide not found in package resources."
+
+    # Inject agent invocation rules
+    rules_section = ""
+    
+    # Sort agents by role for consistent output
+    sorted_agents = sorted(config.agents.items())
+    
+    for role, agent in sorted_agents:
+        if agent.invocation_rules:
+            rules_section += f"\n### Agent: {agent.name} (`{role}`)\n\n"
+            rules_section += agent.invocation_rules + "\n"
+            
+    return base_guide + rules_section
 
 
 def get_orchestration_guide() -> dict:
@@ -22,7 +43,7 @@ def get_orchestration_guide() -> dict:
     following the workflow described in the guide.
 
     Returns:
-        - guide: Full orchestrator instructions (from 01_orchestrator.md)
+        - guide: Full orchestrator instructions (from orchestrator.md + injected rules)
         - agents: Dictionary of available agents with descriptions
     """
     config = get_config()
@@ -35,14 +56,7 @@ def get_orchestration_guide() -> dict:
             "description": agent.description,
         }
 
-    # Load orchestrator guide from file
-    try:
-        guide = _load_orchestrator_guide()
-    except FileNotFoundError as e:
-        return {
-            "error": str(e),
-            "agents": agents,
-        }
+    guide = _load_orchestrator_guide()
 
     return {
         "guide": guide,

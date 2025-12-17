@@ -2,8 +2,9 @@
 
 from typing import Annotated, Optional
 
-from ..config import get_config, load_prompt_file
+from ..config import get_config
 from ..executor import check_cursor_agent_available, invoke_cursor_agent
+from ..executor.logging import get_logger
 
 
 async def invoke_subagent(
@@ -75,6 +76,8 @@ async def invoke_subagent(
         - session_id: Session ID from cursor-agent (None if not available)
         - duration_ms: Execution duration in milliseconds (None if not available)
     """
+
+    logger = get_logger()
     # Check if cursor-agent is available
     available, message = check_cursor_agent_available()
     if not available:
@@ -106,19 +109,10 @@ async def invoke_subagent(
     agent = config.agents[agent_role]
     model_to_use = model or agent.default_model
 
-    # Load the system prompt
-    try:
-        system_prompt = load_prompt_file(config, agent.prompt_file)
-    except FileNotFoundError as e:
-        return {
-            "success": False,
-            "output": "",
-            "error": str(e),
-            "agent_role": agent_role,
-            "model_used": model_to_use,
-            "session_id": None,
-            "duration_ms": None,
-        }
+    logger.info(f"Invoking agent {agent_role} with model {model_to_use}")
+
+    # Use the parsed system prompt from configuration
+    system_prompt = agent.prompt
 
     # Execute the agent
     # Use workspace if provided, otherwise default to cwd

@@ -5,8 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ..config import find_config_file
-
 # Global logger instance (singleton)
 _logger: Optional[logging.Logger] = None
 
@@ -21,12 +19,8 @@ def get_logger() -> logging.Logger:
 
 def _setup_logger() -> logging.Logger:
     """Setup logging to file in logs directory."""
-    # Find project root (where agents.yaml is)
-    config_file = find_config_file()
-    if config_file:
-        logs_dir = config_file.parent / "logs"
-    else:
-        logs_dir = Path.cwd() / "logs"
+    # Use logs directory in current working directory
+    logs_dir = Path.cwd() / "logs"
     
     logs_dir.mkdir(exist_ok=True)
     

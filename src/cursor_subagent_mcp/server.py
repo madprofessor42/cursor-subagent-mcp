@@ -11,12 +11,31 @@ from mcp.server.fastmcp import FastMCP
 from .tools import (
     check_status as check_status_impl,
     get_orchestration_guide as get_orchestration_guide_impl,
+    init_default_agents as init_default_agents_impl,
     invoke_subagent as invoke_subagent_impl,
     setup_cursor_cli as setup_cursor_cli_impl,
 )
 
 # Initialize the MCP server
 mcp = FastMCP("Cursor Subagent Orchestrator")
+
+
+@mcp.tool()
+def init_default_agents(
+    force: Annotated[
+        bool, 
+        "Whether to overwrite existing agent files"
+    ] = False
+) -> dict:
+    """Initialize default agents in the project.
+    
+    Copies built-in agent definitions to the configured agents directory
+    (defaults to ./agents or CURSOR_AGENTS_DIR).
+    
+    Args:
+        force: If True, overwrites existing files. Default is False.
+    """
+    return init_default_agents_impl(force=force)
 
 
 @mcp.tool()

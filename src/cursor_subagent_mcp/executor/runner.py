@@ -214,7 +214,7 @@ async def invoke_cursor_agent(
     Args:
         system_prompt: The system prompt for the agent.
         task: The task/user message to send to the agent.
-        model: The model to use (e.g., "claude-sonnet-4-20250514").
+        model: The model to use (e.g., "auto").
         cwd: Working directory for the agent process.
         workspace: Workspace directory for file access. Defaults to cwd.
         context: Additional context to include in the prompt.
