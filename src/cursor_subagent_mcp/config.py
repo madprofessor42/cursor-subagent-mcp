@@ -40,11 +40,6 @@ class Config(BaseModel):
         description="Filename of the orchestrator guide file (relative to agents_dir)",
     )
 
-
-# Global config - loaded on first access
-_config: Optional[Config] = None
-
-
 def find_agents_dir() -> Path:
     """Find the agents directory.
 
@@ -208,8 +203,5 @@ def load_prompt_file(config: Config, relative_path: str) -> str:
 
 
 def get_config() -> Config:
-    """Get or load the configuration."""
-    global _config
-    if _config is None:
-        _config = load_config()
-    return _config
+    """Get the configuration (always reloads from disk)."""
+    return load_config()
