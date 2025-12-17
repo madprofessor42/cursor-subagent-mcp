@@ -147,7 +147,8 @@ uv sync
         "cursor-subagent-mcp"
       ],
       "env": {
-        "CURSOR_AGENTS_DIR": "/absolute/path/to/your/agents/dir"
+        "CURSOR_AGENTS_DIR": "/absolute/path/to/your/agents/dir",
+        "CURSOR_AGENT_LOG_FILE": "true"
       }
     }
   }
@@ -157,6 +158,10 @@ uv sync
 > **Важно:** 
 > 1. Замените `/path/to/cursor-subagent-mcp` на путь к репозиторию.
 > 2. `CURSOR_AGENTS_DIR` указывает, где искать определения агентов. По умолчанию ищет папку `agents` в корне проекта.
+> 3. `CURSOR_AGENT_LOG_FILE` включает логирование в файл.
+>    - Если не указана: логирование в файл выключено (рекомендуется).
+>    - `true` / `1`: пишет логи в `./logs/` внутри рабочей директории.
+>    - `/absolute/path/to/file.log`: пишет логи в указанный файл.
 
 ### 3. Инициализация агентов
 
