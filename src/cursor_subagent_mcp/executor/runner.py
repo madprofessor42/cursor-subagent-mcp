@@ -247,6 +247,7 @@ async def invoke_cursor_agent(
         "--output-format", "stream-json",
         "--model", model,
         "--workspace", workspace_dir,
+        "--approve-mcps",
     ]
 
     logger.info(f"session_id: {session_id}")
