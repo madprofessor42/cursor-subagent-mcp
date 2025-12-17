@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .tools import (
     check_status as check_status_impl,
+    create_agent_scaffold as create_agent_scaffold_impl,
     get_orchestration_guide as get_orchestration_guide_impl,
     init_default_agents as init_default_agents_impl,
     invoke_subagent as invoke_subagent_impl,
@@ -18,6 +19,33 @@ from .tools import (
 
 # Initialize the MCP server
 mcp = FastMCP("Cursor Subagent Orchestrator")
+
+
+@mcp.tool()
+def create_agent_scaffold(
+    path: Annotated[
+        str,
+        "The path where the agent definition file should be created.",
+    ],
+    name: Annotated[
+        str,
+        "The display name of the agent.",
+    ] = "New Agent",
+) -> str:
+    """Creates a scaffold for a new agent definition file.
+
+    This tool creates a new markdown file with placeholders for the agent definition.
+    It returns a prompt that instructs the LLM to read the created file, ask the user
+    for details, and then fill in the placeholders.
+
+    Args:
+        path: Directory or file path.
+        name: Name of the agent.
+
+    Returns:
+        Instructions for the LLM.
+    """
+    return create_agent_scaffold_impl(path=path, name=name)
 
 
 @mcp.tool()

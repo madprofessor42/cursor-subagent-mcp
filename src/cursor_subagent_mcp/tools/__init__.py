@@ -1,11 +1,13 @@
 """Tools package for cursor-subagent-mcp."""
 
+from .create_agent import create_agent_scaffold
 from .invoke import invoke_subagent
 from .orchestration import get_orchestration_guide
 from .setup import init_default_agents, setup_cursor_cli
 from .status import check_status
 
 __all__ = [
+    "create_agent_scaffold",
     "get_orchestration_guide",
     "invoke_subagent",
     "setup_cursor_cli",
